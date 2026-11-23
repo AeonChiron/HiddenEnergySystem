@@ -58,3 +58,8 @@ Hover the top-right corner of the big screen for **Whole board** (fly through
 every screen of the show, for checking) and **Restart** (everyone back to the
 lobby with $100,000). Phones have a **Leave** button. Whole board is for
 testing and will be removed in the final cut.
+
+## Solo demo (GitHub Pages)
+
+`docs/index.html` is a single-file demo you can play alone with practice
+players, no server needed. It is a build of the preview, not the live game.
