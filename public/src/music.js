@@ -16,7 +16,7 @@ const curve = (from, to) => Float32Array.from({ length: 64 }, (_, i) => {
 });
 const base = () => globalThis.HE_MUSIC_BASE ?? (globalThis.HE_IMG ? null : '/music/');
 
-let ctx = null, out = null;
+let ctx = null, out = null, duck = null;
 const bufs = {};
 let cur = null;      // { slot, src, gain }
 let wanted = null;   // latest slot asked for
@@ -28,6 +28,8 @@ function ensure() {
   if (!AC) return false;
   ctx = new AC();
   out = ctx.createGain();
+  duck = ctx.createGain();
+  duck.connect(out);
   out.connect(ctx.destination);
   return true;
 }
@@ -44,33 +46,63 @@ function load(slot) {
 
 export function preloadMusic() { if (ensure()) SLOTS.forEach(load); }
 
+// --- Transitions, the way a DJ mixes ---------------------------------------
+// Two full tracks overlapping for seconds sounds muddy: two basslines and two
+// drum grooves at different tempos fight. So the outgoing track is low-passed
+// (it sinks away, losing its highs and its groove) while the incoming track
+// enters high-passed (bright and light, no bass) and its low end blooms in
+// only as the old one is gone. Volume follows equal-power curves.
+export const MIX = { FADE, volume: VOLUME, out: FADE * 1.1, inDelay: 0.35, lpEnd: 220, hpStart: 520 };
+
+export function fadeOutVoice(ctx, v, at = ctx.currentTime, ms = MIX.out) {
+  const g = v.gain.gain, f = v.lp.frequency, gv = at > ctx.currentTime ? MIX.volume : g.value;
+  g.cancelScheduledValues(at); f.cancelScheduledValues(at);
+  f.setValueAtTime(20000, at);
+  f.exponentialRampToValueAtTime(MIX.lpEnd, at + ms);
+  try { g.setValueCurveAtTime(curve(gv, 0), at, ms); } catch { g.setValueAtTime(gv, at); g.linearRampToValueAtTime(0, at + ms); }
+  try { v.src.stop(at + ms + 0.05); } catch {}
+}
+
+export function startVoice(ctx, dest, buf, { loop = true, at = ctx.currentTime, fade = MIX.FADE, volume = VOLUME } = {}) {
+  const src = ctx.createBufferSource();
+  const hp = ctx.createBiquadFilter();
+  const lp = ctx.createBiquadFilter();
+  const gain = ctx.createGain();
+  src.buffer = buf; src.loop = loop;
+  hp.type = 'highpass'; hp.Q.value = 0.5;
+  hp.frequency.setValueAtTime(MIX.hpStart, at);
+  hp.frequency.exponentialRampToValueAtTime(20, at + fade * 1.15);
+  lp.type = 'lowpass'; lp.Q.value = 0.5;
+  lp.frequency.setValueAtTime(20000, at);
+  gain.gain.setValueAtTime(0, at);
+  gain.gain.setValueCurveAtTime(curve(0, volume), at, fade);
+  if (!loop) gain.gain.setValueCurveAtTime(curve(volume, 0), Math.max(at + fade + 0.1, at + buf.duration - fade), fade);
+  src.connect(hp).connect(lp).connect(gain).connect(dest);
+  src.start(at);
+  return { src, hp, lp, gain };
+}
+
 export async function playMusic(slot) {
   if (!ensure() || !SLOTS.includes(slot)) return;
   if (wanted === slot) return;
   wanted = slot;
-  const now = ctx.currentTime;
-  if (cur) {
-    const old = cur; cur = null;
-    const g = old.gain.gain, v = g.value;
-    g.cancelScheduledValues(now);
-    try { g.setValueCurveAtTime(curve(v, 0), now, FADE); } catch { g.setValueAtTime(v, now); g.linearRampToValueAtTime(0, now + FADE); }
-    try { old.src.stop(now + FADE + 0.05); } catch {}
-  }
+  if (cur) { fadeOutVoice(ctx, cur); cur = null; }
   const buf = await load(slot);
   if (!buf || wanted !== slot) return;
-  const src = ctx.createBufferSource();
-  const gain = ctx.createGain();
-  const t0 = ctx.currentTime;
-  src.buffer = buf;
-  src.loop = slot !== 'winners';
-  if (!src.loop) { // the winners track ends with its own long fade
-    const end = t0 + buf.duration;
-    gain.gain.setValueCurveAtTime(curve(VOLUME, 0), Math.max(t0 + FADE + 0.1, end - FADE), FADE);
-  }
-  gain.gain.setValueCurveAtTime(curve(0, VOLUME), t0, FADE);
-  src.connect(gain).connect(out);
-  src.start(t0);
-  cur = { slot, src, gain };
+  cur = { slot, ...startVoice(ctx, duck, buf, { loop: slot !== 'winners', at: ctx.currentTime + MIX.inDelay }) };
+}
+
+// Sidechain: sound effects push the music down for a moment so they read
+// clearly, then the music swells back.
+const DUCK = { sting: [0.45, 1.4], reveal: [0.5, 1.2], correct: [0.5, 1.2], wrong: [0.55, 1.0], fanfare: [0.4, 2.2], drumroll: [0.55, 1.8], lock: [0.75, 0.5] };
+export function duckMusic(name) {
+  const d = DUCK[name];
+  if (!d || !duck) return;
+  const [depth, release] = d, t = ctx.currentTime, g = duck.gain;
+  g.cancelScheduledValues(t);
+  g.setValueAtTime(g.value, t);
+  g.linearRampToValueAtTime(depth, t + 0.06);
+  g.setTargetAtTime(1, t + 0.25, release / 3);
 }
 
 // Browsers only allow sound after a click or key press.

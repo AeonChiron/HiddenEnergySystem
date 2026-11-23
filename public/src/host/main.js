@@ -5,10 +5,10 @@
 import { connect as wsConnect } from '../net.js';
 import { Camera } from './camera.js';
 import { buildWorld, zoneEl, HOWTO_BEATS } from './world.js';
-import { sfx, unlockAudio, setMuted, isMuted } from '../sfx.js';
+import { sfx, unlockAudio, setMuted, isMuted, sfxListeners } from '../sfx.js';
 import { confetti } from './confetti.js';
 import { clock } from './clock.js';
-import { playMusic, unlockMusic, holdMusic, muteMusic, preloadMusic } from '../music.js';
+import { playMusic, unlockMusic, holdMusic, muteMusic, preloadMusic, duckMusic } from '../music.js';
 import qrcode from '../../vendor/qrcode.js';
 
 const $ = (sel, el = document) => el.querySelector(sel);
@@ -249,6 +249,7 @@ export function mountHost(root, opts = {}) {
   $('.hud-next', root).addEventListener('click', () => waiters.next && waiters.next());
 
   preloadMusic();
+  sfxListeners.push(duckMusic);
   window.addEventListener('pointerdown', () => { unlockAudio(); unlockMusic(); });
   window.addEventListener('keydown', (e) => {
     if (e.target.closest && e.target.closest('input,textarea')) return;
@@ -625,6 +626,7 @@ export function mountHost(root, opts = {}) {
 
   async function finale(step) {
     stage(step, { name: 'finale' });
+    playMusic('lobby'); // the journey zoom-out drifts back to the opening theme
     root.querySelectorAll('.zone').forEach((z) => z.classList.add('settled'));
     await cam.fly(frameOf('all', 0.02), 4200);
     await waitNext('Play again');

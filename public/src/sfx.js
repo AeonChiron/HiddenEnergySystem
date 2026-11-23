@@ -152,8 +152,10 @@ const synth = {
   },
 };
 
+export const sfxListeners = [];
 export function sfx(name, arg) {
   if (!ctx || muted) return;
+  sfxListeners.forEach((f) => f(name));
   if (ctx.state === 'suspended') ctx.resume();
   try {
     if (buffers[name]) return playBuffer(name);
