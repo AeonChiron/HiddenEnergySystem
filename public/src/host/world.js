@@ -155,7 +155,7 @@ function lobbyHTML() {
           <ul class="names" id="names"></ul>
         </div>
       </div>
-      <div class="lobby-art">${art('lobby')}</div>
+      <div class="lobby-art">${art('lobby')}${art('lobby2')}</div>
     </div>`;
 }
 

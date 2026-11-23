@@ -8,7 +8,7 @@ import { buildWorld, zoneEl, HOWTO_BEATS } from './world.js';
 import { sfx, unlockAudio, setMuted, isMuted, sfxListeners } from '../sfx.js';
 import { confetti } from './confetti.js';
 import { clock } from './clock.js';
-import { playMusic, unlockMusic, holdMusic, muteMusic, preloadMusic, duckMusic } from '../music.js';
+import { playMusic, unlockMusic, musicLocked, holdMusic, muteMusic, preloadMusic, duckMusic } from '../music.js';
 import qrcode from '../../vendor/qrcode.js';
 
 const $ = (sel, el = document) => el.querySelector(sel);
@@ -21,9 +21,9 @@ export function mountHost(root, opts = {}) {
   const SPEED = Number(params.get('speed')) || opts.speed || 1;
   const wait = (ms) => clock.sleep(ms / SPEED);
   // How long each answer's cutscene holds on screen (Seed: about 12 seconds).
-  // Each answer close-up holds 5 to 7 seconds, longer for longer answers.
+  // Each answer close-up holds 2 to 4 seconds, longer for longer answers.
   const CUT_FIXED = Number(params.get('cut')) || opts.cutMs || 0;
-  const cutMs = (text) => CUT_FIXED || Math.min(7000, Math.max(5000, 5000 + (text.length - 30) * 40));
+  const cutMs = (text) => CUT_FIXED || Math.min(4000, Math.max(2000, 2000 + (text.length - 30) * 40));
 
   root.classList.add('he-host');
   root.innerHTML = `
@@ -153,7 +153,7 @@ export function mountHost(root, opts = {}) {
     const qr = qrcode(0, 'M');
     qr.addData(url);
     qr.make();
-    $('#qr', root).innerHTML = qr.createSvgTag({ cellSize: 8, margin: 0, scalable: true });
+    $('#qr', root).innerHTML = qr.createSvgTag({ cellSize: 8, margin: 3, scalable: true });
     const j = $('.hud-join', root);
     j.innerHTML = `Join at <b>${esc(shown.replace(/\/join\/\d+$/, '/join'))}</b> · code <b>${S.code}</b>`;
   }
@@ -250,6 +250,15 @@ export function mountHost(root, opts = {}) {
 
   preloadMusic();
   sfxListeners.push(duckMusic);
+  // Browsers keep sound off until the first click or key press, so say so.
+  if (musicLocked()) {
+    const tip = document.createElement('div');
+    tip.className = 'sound-tip';
+    tip.textContent = 'Click anywhere to turn the sound on';
+    root.appendChild(tip);
+    const off = () => { tip.remove(); window.removeEventListener('pointerdown', off); window.removeEventListener('keydown', off); };
+    window.addEventListener('pointerdown', off); window.addEventListener('keydown', off);
+  }
   window.addEventListener('pointerdown', () => { unlockAudio(); unlockMusic(); });
   window.addEventListener('keydown', (e) => {
     if (e.target.closest && e.target.closest('input,textarea')) return;
@@ -365,9 +374,9 @@ export function mountHost(root, opts = {}) {
     hud({ round: 'How to play' });
     const el = live('howto');
     const beats = [...el.querySelectorAll('.beat')];
-    // The whole demo fits in about 40 seconds. Each beat gets a share of the
+    // The whole demo fits in about 22 seconds. Each beat gets a share of the
     // time left, weighted by how much text it has to read.
-    const TOTAL = 40000 / SPEED, MOVE = 1500 / SPEED;
+    const TOTAL = 22000 / SPEED, MOVE = 1500 / SPEED;
     const t0 = clock.now();
     const chars = HOWTO_BEATS.map((b) => b.lines.join(' ').length);
     for (let i = 0; i < beats.length; i++) {
@@ -396,7 +405,7 @@ export function mountHost(root, opts = {}) {
     live(`round${r}`);
     await cam.fly(frameOf(`round${r}`, 0));
     sfx('sting');
-    await wait(4200);
+    await wait(2500);
   }
 
   async function question(step, n, resumed) {
@@ -429,7 +438,7 @@ export function mountHost(root, opts = {}) {
     if (q.kind === 'mc') await mcReveal(q, el, res);
     else if (q.kind === 'binary') await foodReveal(q, el, res);
     else await bonusReveal(q, el, res);
-    await waitNext(n === 13 ? 'To the winners' : 'Next', q.kind === 'binary' ? 9000 : n === 13 ? 13000 : 11000);
+    await waitNext(n === 13 ? 'To the winners' : 'Next', q.kind === 'binary' ? 7000 : n === 13 ? 11000 : 9000);
     el.classList.remove('live');
   }
 
@@ -443,7 +452,7 @@ export function mountHost(root, opts = {}) {
     await cam.fly(frameOf(`q${q.n}title`, 0.1));
     el.classList.add('show-title');
     sfx('pop');
-    await wait(4500);
+    await wait(2500);
     // Scenes 2-5: one mini cutscene per answer, always whooshing right.
     for (const { letter: L, text } of q.options.filter((o) => !o.all)) {
       stage(step, { name: 'watch', n: q.n, round: q.round, letter: L });
@@ -522,7 +531,7 @@ export function mountHost(root, opts = {}) {
     await cam.fly(frameOf(`q${q.n}`, 0));
     el.classList.add('overview', 'all-in');
     sfx('pop');
-    await wait(6000);
+    await wait(4000);
   }
 
   async function bonusReveal(q, el, res) {
@@ -555,7 +564,7 @@ export function mountHost(root, opts = {}) {
     live(`disc${r}`);
     await cam.fly(frameOf(`disc${r}`, 0));
     sfx('sting');
-    await wait(3800);
+    await wait(2500);
   }
 
   async function leaderboard(step, r) {
@@ -571,7 +580,7 @@ export function mountHost(root, opts = {}) {
     await cam.ease(frameOf(`lb${r}`, 0), 1400);
     el.classList.add('play');
     countUp(ol.querySelectorAll('em[data-to]'), 1400);
-    await waitNext('Next', 9000);
+    await waitNext('Next', 7000);
     $('.hud-join', root).hidden = true;
   }
 
@@ -593,7 +602,7 @@ export function mountHost(root, opts = {}) {
     live('bonusIntro');
     await cam.fly(frameOf('bonusIntro', 0));
     sfx('sting');
-    await wait(3800);
+    await wait(2800);
   }
 
   async function podium(step) {

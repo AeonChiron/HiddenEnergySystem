@@ -106,6 +106,7 @@ export function duckMusic(name) {
 }
 
 // Browsers only allow sound after a click or key press.
+export const musicLocked = () => !!ctx && ctx.state === 'suspended';
 export function unlockMusic() { if (ctx && !held && ctx.state === 'suspended') ctx.resume(); }
 
 export function holdMusic(on) {

@@ -13,6 +13,7 @@ const IDS = [
   'brainPlaques', 'abnormalCells', 'glucoseCells', 'revealDiseases',
   'proteinFlood', 'nutrientShortage', 'napPlates', 'revealScarcity',
   'timelineLonger', 'timelinesEqual', 'mouseMaze', 'revealLifespan',
+  'lobby2',
 ];
 
 export const imgSrc = (id) => (globalThis.HE_IMG && globalThis.HE_IMG[`art/${id}`]) || `/img/art/${id}.webp`;
