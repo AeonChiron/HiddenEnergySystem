@@ -3,7 +3,7 @@
 // Every stop plays its own animation, so scenes can be reviewed one by one.
 
 import { Camera } from './camera.js';
-import { buildWorld, zoneEl } from './world.js';
+import { buildWorld, zoneEl, HOWTO_BEATS } from './world.js';
 
 const SAMPLE = [
   ['Insulin Ivy', '#1d5e5f', 385000], ['Kenny Ketone', '#c45a2c', 310000], ['Lyso Lisa', '#d39b2e', 245000],
@@ -56,7 +56,9 @@ export function mountTour(root, content, opts = {}) {
   });
 
   add('lobby', 'Lobby', 'Home screen and join card', 'lobby', (el) => el.classList.add('intro'));
-  add('howto', 'How it works', 'Rules demo', 'howto', (el) => el.classList.add('play'));
+  HOWTO_BEATS.forEach((b, i) => add('howto', 'How to play', b.lines.join(' '), `howto${i}`, (el) => {
+    el.querySelectorAll('.beat').forEach((x, j) => { x.classList.remove('off'); x.classList.toggle('on', j === i); });
+  }));
   for (const r of rounds) {
     add(`round${r.id}`, `Round ${r.id}`, r.name, `round${r.id}`);
     for (const q of questions.filter((x) => x.round === r.id)) {

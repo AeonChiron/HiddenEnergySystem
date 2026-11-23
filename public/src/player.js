@@ -274,14 +274,14 @@ export function mountPlayer(root, opts = {}) {
         </section>`;
       case 'howto': return `
         <section class="center howto-p">
-          <p class="kicker">How it works</p>
-          <h2>Bet, answer, get rich</h2>
+          <p class="kicker">How to play</p>
+          <h2>Watch the big screen</h2>
           <ul class="rules">
             <li>You start with <b>$100,000</b>.</li>
-            <li>Bet <b>10%, 15%, 25% or 50%</b> of your money on each answer. Right, you win it. Wrong, you lose it.</li>
-            <li>Three right in a row, each with a bet: <b>+$50,000</b>.</li>
-            <li>Three rounds: food, energy, repair. Then a bonus question worth <b>$300,000</b>.</li>
-            <li>You have <b>2 hints</b> for the whole game.</li>
+            <li>Bet part of it on every answer. Right, you win your bet. Wrong, you lose it.</li>
+            <li>Three right in a row, with a bet each time: <b>$50,000 extra</b>.</li>
+            <li><b>2 hints</b> for the whole game. Only you see them.</li>
+            <li>Bonus question at the end: closest guess takes <b>$300,000</b>.</li>
           </ul>
         </section>`;
       case 'bonusIntro': return `
@@ -341,7 +341,7 @@ export function mountPlayer(root, opts = {}) {
         ${choices}
         ${q.kind !== 'number' && o.bets?.length ? `<div class="bets" role="radiogroup" aria-label="Your bet">
           <p class="bets-head">Your bet <span>You have ${money(state.me.score)}</span></p>
-          <div class="bet-row">${o.bets.map(({ pct, amount: v }) => `<button class="bet ${state.bet === v ? 'sel' : ''}" data-bet="${v}" role="radio" aria-checked="${state.bet === v}">${pct === 0 ? 'No bet' : `<b>${pct}%</b><small>${short(v)}</small>`}</button>`).join('')}</div>
+          <div class="bet-row">${o.bets.map(({ pct, amount: v }) => `<button class="bet ${state.bet === v ? 'sel' : ''}" data-bet="${v}" role="radio" aria-checked="${state.bet === v}">${pct === 0 ? 'No bet' : `<b>${pct}%</b> <small>${short(v)}</small>`}</button>`).join('')}</div>
         </div>` : ''}
         <div class="actions">
           ${hintBtn}

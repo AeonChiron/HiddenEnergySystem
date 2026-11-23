@@ -14,7 +14,7 @@ const CALLOUTS = {
   acai: [[17, 58, 'b'], [36, 33, 't'], [64, 62, 'r']],
   burger: [[44, 16, 't'], [13, 82, 'b']],
   quinoa: [[50, 28, 'r'], [22, 34, 'l'], [70, 76, 'r']],
-  alfredo: [[82, 30, 't'], [42, 60, 'b']],
+  alfredo: [[87, 29, 't'], [41, 63, 'b']],
 };
 
 // Layout constants (world px).
@@ -36,7 +36,9 @@ export function buildWorld(worldEl, content) {
 
   // Row 0: lobby
   place('lobby', 0, 0, 1920, 1080, lobbyHTML(), 'z-lobby');
-  place('howto', 1920 + ZONE_GAP, 0, 1920, 1080, howtoHTML(), 'z-howto');
+  const HX = 1920 + ZONE_GAP;
+  place('howto', HX, 0, HOWTO_BEATS.length * (BEAT_W + BEAT_GAP) - BEAT_GAP, 1080, howtoHTML(), 'z-howto');
+  HOWTO_BEATS.forEach((_, i) => { zones[`howto${i}`] = { id: `howto${i}`, x: HX + i * (BEAT_W + BEAT_GAP), y: 0, w: BEAT_W, h: 1080 }; });
 
   let y = 1080 + ROW_GAP;
   for (const r of rounds) {
@@ -85,20 +87,42 @@ export function buildWorld(worldEl, content) {
 export const zoneEl = (id, scope = document) => scope.querySelector(`#z-${id}`);
 
 // ---------- zone templates ----------
+// "How to play" cutscene: one beat per rule, side by side. The camera visits
+// each beat; its caption rolls in, holds, and rolls off before the next move.
+export const HOWTO_BEATS = [
+  { lines: ['Three rounds: food, energy, repair.', 'Answer on your phone. 20 seconds each.'], vis: 'rounds' },
+  { lines: ['You start with $100,000.', 'Bet 10, 15, 25 or 50% of it on each answer.'], vis: 'bets' },
+  { lines: ['Bet 25% and get it right? $125,000.', 'Get it wrong? $75,000.'], vis: 'winlose' },
+  { lines: ['Three right in a row, betting each time,', 'gets you a $50,000 bonus.'], vis: 'streak' },
+  { lines: ['You get two hints for the whole game.', 'Only you can see them.'], vis: 'hints' },
+  { lines: ['Last up: a bonus question worth $300,000.', 'Most money wins.'], vis: 'bonus' },
+];
+export const BEAT_W = 1920, BEAT_GAP = 320;
+
+function beatVisual(v) {
+  const pill = (t, cls = '') => `<span class="hv-pill ${cls}">${t}</span>`;
+  switch (v) {
+    case 'rounds': return `<div class="hv-rounds">${[1, 2, 3].map((n, i) => `<figure style="--k:${i}"><div class="hv-pic">${art(`round${n}`)}</div><figcaption>${['Food', 'Energy', 'Repair'][i]}</figcaption></figure>`).join('')}</div>`;
+    case 'phone': return `<div class="hv-phone"><div class="hv-screen"><b>20</b><i></i><i></i><i></i><i></i></div></div>`;
+    case 'start': return `<p class="hv-big">$100,000</p>`;
+    case 'bets': return `<div class="hv-bets"><p class="hv-big">$100,000</p><div class="hv-row">${['10%', '15%', '25%', '50%'].map((p, i) => `<span class="hv-chip" style="--k:${i}">${p}</span>`).join('')}</div></div>`;
+    case 'example': return `<div class="hv-ex"><span class="hv-chip pick" style="--k:0">25%</span><span class="hv-arrow" style="--k:1">&rarr;</span><p class="hv-plus" style="--k:2">$25,000</p></div>`;
+    case 'winlose': return `<div class="hv-wl"><p class="hv-line" style="--k:0"><s>$100,000</s> &rarr; <b class="up">$125,000</b></p><p class="hv-line" style="--k:1"><s>$100,000</s> &rarr; <b class="down">$75,000</b></p></div>`;
+    case 'sure': return `<div class="hv-row">${[['No bet', 0], ['10%', 1], ['15%', 2], ['25%', 3], ['50%', 4]].map(([p, i]) => `<span class="hv-chip s${i}" style="--k:${i}">${p}</span>`).join('')}</div>`;
+    case 'streak': return `<div class="hv-streak"><div class="hv-row">${[0, 1, 2].map((i) => `<span class="hv-check" style="--k:${i}">&#10003;</span>`).join('')}</div><p class="hv-plus" style="--k:3">+$50,000</p></div>`;
+    case 'hints': return `<div class="hv-hints">${[0, 1].map((i) => `<span class="hv-bulb" style="--k:${i}">?</span>`).join('')}</div>`;
+    case 'bonus': return `<div class="hv-bonus"><p class="hv-q">?<small>%</small></p><p class="hv-plus" style="--k:1">$300,000</p></div>`;
+    case 'win': return `<div class="hv-win">${art('trophy')}</div>`;
+  }
+  return pill('');
+}
+
 function howtoHTML() {
-  const cards = [
-    ['1', 'Answer on your phone', 'Pick an answer before the 20 seconds run out.'],
-    ['$', 'Bet to win money', 'You start with $100,000. Bet 10%, 15%, 25% or 50% of your money on each answer. Right, you win it. Wrong, you lose it.'],
-    ['3', 'Three in a row', 'Three right answers in a row, each with a bet, pay a $50,000 bonus.'],
-    ['?', 'Two hints', 'You get 2 hints for the whole game. Only you see them.'],
-  ];
-  return `
-    <div class="howto">
-      <p class="kicker">How it works</p>
-      <h2 class="howto-title">Three rounds. One bonus. The richest player wins.</h2>
-      <p class="howto-rounds"><span>Food</span><i></i><span>Energy</span><i></i><span>Repair</span><i></i><span class="b">Bonus: closest guess wins $300,000</span></p>
-      <ol class="howto-cards">${cards.map(([k, h, t], i) => `<li style="--i:${i}"><b>${k}</b><h3>${h}</h3><p>${t}</p></li>`).join('')}</ol>
-    </div>`;
+  return `<div class="howto">${HOWTO_BEATS.map((b, i) => `
+    <div class="beat" data-beat="${i}" style="left:${i * (BEAT_W + BEAT_GAP)}px">
+      <div class="beat-vis">${beatVisual(b.vis)}</div>
+      <div class="caption">${b.lines.map((l, j) => `<span class="cl" style="--j:${j}"><span>${esc(l)}</span></span>`).join('')}</div>
+    </div>`).join('')}</div>`;
 }
 
 function lobbyHTML() {

@@ -242,23 +242,70 @@
 .tour-btn.close { background: var(--ivory); border-color: var(--ivory); }
 @media (max-width: 640px) { .tour-bar { height: auto; flex-wrap: wrap; padding-block: 8px; } .he-tour .viewport { bottom: 120px; } .tour-label { order: -1; flex-basis: 100%; } }
 
-/* ---------- how it works ---------- */
-.howto { width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; padding: 100px 130px; }
-.howto-title { font-size: 92px; line-height: .98; letter-spacing: -.035em; font-weight: 800; margin: 0 0 34px; max-width: 1500px; }
-.howto-rounds { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; margin: 0 0 56px; font-size: 32px; font-weight: 800; }
-.howto-rounds span { background: var(--ivory); padding: 10px 26px; border-radius: 999px; }
-.howto-rounds span.b { background: var(--teal); color: #fff; }
-.howto-rounds i { width: 34px; height: 4px; border-radius: 2px; background: var(--line); }
-.howto-cards { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: 30px; }
-.howto-cards li { background: #fff; border: 2px solid var(--line); border-radius: 30px; padding: 34px 32px 36px; box-shadow: 0 18px 40px -24px rgba(19, 40, 43, .25);
-  opacity: 0; transform: translateY(28px); transition: opacity .5s calc(var(--i) * .35s + .2s), transform .7s cubic-bezier(.2, 1.3, .4, 1) calc(var(--i) * .35s + .2s); }
-.howto.play .howto-cards li, .play .howto-cards li { opacity: 1; transform: none; }
-.howto-cards b { display: grid; place-items: center; width: 74px; height: 74px; border-radius: 50%; background: var(--ochre); color: var(--ink); font-size: 38px; font-weight: 800; margin-bottom: 22px; }
-.howto-cards li:nth-child(2) b { background: var(--teal); color: #fff; }
-.howto-cards li:nth-child(3) b { background: var(--orange); color: #fff; }
-.howto-cards li:nth-child(4) b { background: var(--teal-l); }
-.howto-cards h3 { font-size: 38px; line-height: 1.05; letter-spacing: -.02em; font-weight: 800; margin: 0 0 14px; }
-.howto-cards p { font-size: 25px; line-height: 1.35; color: var(--ink-2); margin: 0; }
+/* ---------- how to play (cutscene) ---------- */
+.howto { position: relative; width: 100%; height: 100%; }
+.beat { position: absolute; top: 0; width: 1920px; height: 1080px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 70px; }
+.beat-vis { height: 560px; display: grid; place-items: center; }
+.beat-vis > * { opacity: 0; transform: translateY(40px) scale(.96); transition: opacity .6s .15s, transform .9s cubic-bezier(.2, 1.2, .4, 1) .15s; }
+.beat.on .beat-vis > * { opacity: 1; transform: none; }
+.beat.off .beat-vis > * { opacity: 0; transform: translateY(-30px); transition: opacity .45s, transform .5s ease-in; }
+[style*="--k"] { --d: calc(var(--k) * .2s + .3s); }
+
+/* captions roll up into view line by line, then roll off */
+.caption { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; }
+.cl { display: block; overflow: hidden; padding: 0 10px 8px; }
+.cl > span { display: block; font-size: 76px; line-height: 1.08; font-weight: 800; letter-spacing: -.03em; transform: translateY(110%); transition: transform .7s cubic-bezier(.2, 1, .3, 1) calc(var(--j) * .55s + .2s); }
+.cl:nth-child(2) > span { font-size: 56px; font-weight: 700; color: var(--ink-2); letter-spacing: -.02em; }
+.beat.on .cl > span { transform: none; }
+.beat.off .cl > span { transform: translateY(-110%); transition: transform .45s cubic-bezier(.6, 0, .8, .3) calc(var(--j) * .08s); }
+
+.hv-rounds { display: flex; gap: 48px; }
+.hv-rounds figure { margin: 0; width: 420px; display: flex; flex-direction: column; align-items: center; gap: 18px; opacity: 0; transform: translateY(30px); transition: opacity .5s var(--d), transform .8s cubic-bezier(.2, 1.3, .4, 1) var(--d); }
+.beat.on .hv-rounds figure { opacity: 1; transform: none; }
+.hv-pic { width: 420px; height: 420px; }
+.hv-rounds .pic { aspect-ratio: 1; }
+.z-howto .hv-rounds figure:first-child .pic img { object-fit: contain; background: #fff; }
+.hv-rounds figcaption { font-size: 40px; font-weight: 800; background: var(--ivory); padding: 8px 30px; border-radius: 999px; }
+
+.hv-phone { width: 290px; height: 540px; border-radius: 48px; background: var(--ink); padding: 18px; box-shadow: 0 30px 60px -30px rgba(19, 40, 43, .5); }
+.hv-screen { width: 100%; height: 100%; border-radius: 34px; background: #fff; display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 40px 26px; }
+.hv-screen b { width: 130px; height: 130px; border-radius: 50%; border: 10px solid var(--teal); display: grid; place-items: center; font-size: 56px; margin-bottom: 14px; }
+.hv-screen i { width: 100%; height: 50px; border-radius: 14px; background: var(--ivory); }
+.hv-screen i:nth-of-type(1) { background: var(--teal-xl); border: 3px solid var(--teal); }
+
+.hv-big { font-size: 200px; font-weight: 800; letter-spacing: -.05em; line-height: 1; margin: 0 0 36px; color: var(--teal); font-variant-numeric: tabular-nums; }
+.hv-bets { text-align: center; }
+.hv-row { display: flex; gap: 28px; justify-content: center; }
+.hv-chip, .hv-check, .hv-bulb { display: grid; place-items: center; opacity: 0; transform: scale(.5); transition: opacity .3s var(--d), transform .6s cubic-bezier(.2, 1.7, .4, 1) var(--d); }
+.beat.on :is(.hv-chip, .hv-check, .hv-bulb) { opacity: 1; transform: none; }
+.hv-chip { font-size: 72px; font-weight: 800; padding: 18px 38px; border-radius: 26px; background: #fff; border: 4px solid var(--line); }
+.hv-chip:last-child { background: var(--teal); color: #fff; border-color: var(--teal); }
+.hv-wl { display: flex; flex-direction: column; gap: 34px; align-items: flex-start; }
+.hv-line { margin: 0; font-size: 110px; font-weight: 800; letter-spacing: -.04em; line-height: 1; opacity: 0; transform: translateX(-40px); transition: opacity .4s var(--d), transform .7s cubic-bezier(.2, 1.3, .4, 1) var(--d); }
+.hv-wl .hv-line:nth-child(2) { --d: .95s; }
+.beat.on .hv-line { opacity: 1; transform: none; }
+.hv-line s { color: var(--ink-3); text-decoration-thickness: 8px; font-weight: 700; }
+.hv-line .up { color: var(--teal); } .hv-line .down { color: var(--orange); }
+.hv-ex { display: flex; align-items: center; gap: 50px; }
+.hv-ex .hv-chip.pick { font-size: 110px; padding: 26px 56px; background: var(--teal); color: #fff; border-color: var(--teal); border-radius: 40px; }
+.hv-arrow { font-size: 120px; font-weight: 800; color: var(--ink-3); opacity: 0; transition: opacity .4s var(--d); }
+.beat.on .hv-arrow { opacity: 1; }
+.hv-chip.s0 { font-size: 40px; color: var(--ink-3); }
+.hv-chip.s1 { font-size: 44px; } .hv-chip.s2 { font-size: 52px; } .hv-chip.s3 { font-size: 62px; } .hv-chip.s4 { font-size: 76px; }
+.hv-row .hv-chip { align-self: center; }
+.hv-plus, .hv-minus { margin: 0; font-size: 150px; font-weight: 800; letter-spacing: -.04em; line-height: 1; opacity: 0; transform: translateY(30px); transition: opacity .4s var(--d), transform .7s cubic-bezier(.2, 1.4, .4, 1) var(--d); }
+.hv-plus { color: var(--teal); } .hv-minus { color: var(--orange); }
+.beat.on :is(.hv-plus, .hv-minus) { opacity: 1; transform: none; }
+.hv-wl .hv-minus { --d: 1.6s; }
+.hv-streak { display: flex; flex-direction: column; gap: 50px; align-items: center; }
+.hv-check { width: 170px; height: 170px; border-radius: 50%; background: var(--teal); color: #fff; font-size: 100px; font-weight: 800; }
+.hv-hints { display: flex; gap: 60px; }
+.hv-bulb { width: 240px; height: 240px; border-radius: 50%; background: var(--ochre); font-size: 150px; font-weight: 800; color: var(--ink); }
+.hv-bonus { display: flex; flex-direction: column; align-items: center; gap: 20px; }
+.hv-q { margin: 0; font-size: 300px; line-height: .85; font-weight: 800; color: var(--teal); letter-spacing: -.05em; }
+.hv-q small { font-size: 140px; }
+.hv-win { width: 440px; height: 440px; }
+.hv-win svg { width: 100%; height: 100%; }
 
 /* bonus winners */
 .guesses li.won { color: var(--teal); grid-template-columns: 30px 1fr auto auto; }

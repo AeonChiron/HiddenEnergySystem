@@ -4,7 +4,7 @@
 
 import { connect as wsConnect } from '../net.js';
 import { Camera } from './camera.js';
-import { buildWorld, zoneEl } from './world.js';
+import { buildWorld, zoneEl, HOWTO_BEATS } from './world.js';
 import { sfx, unlockAudio, setMuted, isMuted } from '../sfx.js';
 import { confetti } from './confetti.js';
 import qrcode from '../../vendor/qrcode.js';
@@ -336,15 +336,34 @@ export function mountHost(root, opts = {}) {
     sfx('sting');
   }
 
+  // How to play: a short cutscene, one rule per beat. Each caption rolls in,
+  // holds long enough to read, then rolls off as the camera moves on.
   async function howto(step) {
     stage(step, { name: 'howto' });
-    hud({ round: 'How it works' });
+    hud({ round: 'How to play' });
     const el = live('howto');
-    await cam.fly(frameOf('howto', 0));
-    el.classList.add('play');
-    sfx('pop');
-    await waitNext('Start round 1', 15000);
+    const beats = [...el.querySelectorAll('.beat')];
+    // The whole demo fits in about 25 seconds. Each beat gets a share of the
+    // time left, weighted by how much text it has to read.
+    const TOTAL = 25000 / SPEED, MOVE = 950 / SPEED;
+    const t0 = performance.now();
+    const chars = HOWTO_BEATS.map((b) => b.lines.join(' ').length);
+    for (let i = 0; i < beats.length; i++) {
+      const b = beats[i];
+      if (i === 0) await cam.fly(frameOf('howto0', 0), 1400);
+      else await cam.whoosh(frameOf(`howto${i}`, 0), 900);
+      b.classList.remove('off');
+      b.classList.add('on');
+      sfx(i === beats.length - 1 ? 'sting' : 'pop');
+      const left = TOTAL - (performance.now() - t0) - (beats.length - 1 - i) * MOVE;
+      const share = chars[i] / chars.slice(i).reduce((x, y) => x + y, 0);
+      const hold = Math.max(2400 / SPEED, left * share) * SPEED;
+      const last = i === beats.length - 1;
+      await waitNext(last ? 'Start round 1' : 'Next', hold);
+      if (!last) { b.classList.add('off'); await wait(420); }
+    }
   }
+
 
   async function roundIntro(step, r) {
     const info = roundInfo(r);

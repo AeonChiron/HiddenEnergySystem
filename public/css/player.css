@@ -110,3 +110,11 @@
 .recap ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
 .recap li { display: flex; justify-content: space-between; background: var(--ivory, #f4ecdd); border-radius: 12px; padding: 10px 14px; font-size: 17px; }
 .ph .leave { margin-left: 8px; background: none; border: 2px solid var(--line, #dfe3df); border-radius: 999px; padding: 4px 12px; font-size: 13px; font-weight: 700; color: var(--ink-2, #445); }
+.bet { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 10px 6px 9px; min-height: 64px; }
+.bet b { font-size: 24px; line-height: 1; letter-spacing: -.02em; }
+.bet small { font-size: 12px; font-weight: 700; color: var(--ink-3, #667); letter-spacing: .01em; }
+.bet.sel small { color: var(--ink-2, #445); }
+.bet-row { flex-wrap: nowrap; gap: 6px; }
+.bet { flex: 1 1 0; min-width: 0; padding: 10px 2px 9px; border-radius: 16px; }
+.bet b { font-size: 21px; }
+.bet[data-bet="0"] { font-size: 14px; line-height: 1.1; color: var(--ink-2, #445); }
