@@ -55,9 +55,6 @@
 .names li.away { opacity: .4; }
 .start-btn { font-size: 30px; font-weight: 800; padding: 20px 46px; border-radius: 999px; border: 0; background: var(--teal); color: #fff; box-shadow: 0 12px 24px -12px rgba(29, 94, 95, .6); }
 .lobby-art { width: 560px; height: 560px; justify-self: center; position: relative; }
-/* Seed's two lobby pictures take turns, a slow crossfade every ~9 s */
-.lobby-art .pic + .pic { position: absolute; inset: 0; animation: lobby-swap 18s ease-in-out infinite; }
-@keyframes lobby-swap { 0%, 40% { opacity: 0; } 50%, 90% { opacity: 1; } 100% { opacity: 0; } }
 
 /* ---------- round intro / discovery / bonus intro ---------- */
 .round-intro, .discovery, .bonus-intro { width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; padding: 120px 140px; position: relative; }

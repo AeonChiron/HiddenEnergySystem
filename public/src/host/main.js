@@ -374,9 +374,9 @@ export function mountHost(root, opts = {}) {
     hud({ round: 'How to play' });
     const el = live('howto');
     const beats = [...el.querySelectorAll('.beat')];
-    // The whole demo fits in about 22 seconds. Each beat gets a share of the
+    // The whole demo fits in about 30 seconds. Each beat gets a share of the
     // time left, weighted by how much text it has to read.
-    const TOTAL = 22000 / SPEED, MOVE = 1500 / SPEED;
+    const TOTAL = 30000 / SPEED, MOVE = 1500 / SPEED;
     const t0 = clock.now();
     const chars = HOWTO_BEATS.map((b) => b.lines.join(' ').length);
     for (let i = 0; i < beats.length; i++) {
