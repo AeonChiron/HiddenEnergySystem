@@ -343,15 +343,15 @@ export function mountHost(root, opts = {}) {
     hud({ round: 'How to play' });
     const el = live('howto');
     const beats = [...el.querySelectorAll('.beat')];
-    // The whole demo fits in about 25 seconds. Each beat gets a share of the
+    // The whole demo fits in about 40 seconds. Each beat gets a share of the
     // time left, weighted by how much text it has to read.
-    const TOTAL = 25000 / SPEED, MOVE = 950 / SPEED;
+    const TOTAL = 40000 / SPEED, MOVE = 1500 / SPEED;
     const t0 = performance.now();
     const chars = HOWTO_BEATS.map((b) => b.lines.join(' ').length);
     for (let i = 0; i < beats.length; i++) {
       const b = beats[i];
-      if (i === 0) await cam.fly(frameOf('howto0', 0), 1400);
-      else await cam.whoosh(frameOf(`howto${i}`, 0), 900);
+      if (i === 0) await cam.fly(frameOf('howto0', 0), 2200);
+      else await cam.whoosh(frameOf(`howto${i}`, 0), 1450);
       b.classList.remove('off');
       b.classList.add('on');
       sfx(i === beats.length - 1 ? 'sting' : 'pop');
@@ -360,7 +360,7 @@ export function mountHost(root, opts = {}) {
       const hold = Math.max(2400 / SPEED, left * share) * SPEED;
       const last = i === beats.length - 1;
       await waitNext(last ? 'Start round 1' : 'Next', hold);
-      if (!last) { b.classList.add('off'); await wait(420); }
+      if (!last) { b.classList.add('off'); await wait(650); }
     }
   }
 
