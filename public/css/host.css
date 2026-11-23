@@ -329,3 +329,8 @@
 .he-host.paused::after { content: 'Paused · press P or Play'; position: absolute; left: 50%; top: 24px; transform: translateX(-50%); z-index: 30; background: var(--ink); color: #fff; font-weight: 800; font-size: 18px; padding: 10px 22px; border-radius: 999px; }
 .he-host.paused .hud-tools { opacity: 1; }
 .tour-btn.play { background: var(--teal); color: #fff; border-color: var(--teal); font-weight: 800; }
+/* Food is a wide picture: give it a wide card so nothing is cut or boxed */
+.hv-rounds figure:first-child { width: 747px; }
+.hv-rounds figure:first-child .hv-pic { width: 747px; }
+.z-howto .hv-rounds figure:first-child .pic { aspect-ratio: 16 / 9; height: 420px; width: 747px; }
+.z-howto .hv-rounds figure:first-child .pic img { object-fit: cover; background: none; }
