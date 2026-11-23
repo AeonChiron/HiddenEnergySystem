@@ -92,7 +92,9 @@ export function startVoice(ctx, dest, buf, { loop = true, at = ctx.currentTime, 
 let grid = null;
 const loadGrid = () => grid || (grid = fetch(`${base()}beats.json`).then((r) => (r.ok ? r.json() : {})).catch(() => ({})));
 
-const PREROLL = 2; // seconds of the new track's pickup allowed before the switch
+const PREROLL = 0.8; // seconds of the new track's pickup allowed before the switch
+const SWAP = 1.8;    // seconds for the new track to open fully after the beat
+const CUT = 1.2;     // the old track drops out faster; its echo carries the tail
 
 function nextBeat(g, pos, after) {
   // first beat at least `after` seconds past `pos` in a looping track
@@ -177,9 +179,9 @@ export function crossTo(ctx, dest, old, slot, buf, gin, gout, now = ctx.currentT
   const f = old.lp.frequency;
   if (f.cancelAndHoldAtTime) f.cancelAndHoldAtTime(now); else f.cancelScheduledValues(now);
   f.setValueAtTime(20000, T);
-  f.exponentialRampToValueAtTime(MIX.lpEnd, T + 2.6);
-  try { og.setValueCurveAtTime(curve(VOLUME * 0.8, 0), T, 2.6); } catch { og.linearRampToValueAtTime(0, T + 2.6); }
-  try { old.src.stop(T + 2.65); } catch {}
+  f.exponentialRampToValueAtTime(MIX.lpEnd, T + CUT);
+  try { og.setValueCurveAtTime(curve(VOLUME * 0.8, 0), T, CUT); } catch { og.linearRampToValueAtTime(0, T + CUT); }
+  try { old.src.stop(T + CUT + 0.05); } catch {}
   echoOut(ctx, dest, old, T, beat);
   swell(ctx, dest, T, Math.max(0.6, T - now - 0.05));
   const v = startVoice(ctx, dest, buf, { loop, at: start, fade: 0.1, offset });
@@ -187,10 +189,10 @@ export function crossTo(ctx, dest, old, slot, buf, gin, gout, now = ctx.currentT
   ng.cancelScheduledValues(start); hp.cancelScheduledValues(start);
   ng.setValueAtTime(0, start);
   ng.linearRampToValueAtTime(VOLUME * 0.22, T);
-  try { ng.setValueCurveAtTime(curve(VOLUME * 0.22, VOLUME), T, 2.4); } catch { ng.linearRampToValueAtTime(VOLUME, T + 2.4); }
+  try { ng.setValueCurveAtTime(curve(VOLUME * 0.22, VOLUME), T, SWAP * 0.85); } catch { ng.linearRampToValueAtTime(VOLUME, T + SWAP * 0.85); }
   hp.setValueAtTime(MIX.hpStart, start);
-  hp.setValueAtTime(MIX.hpStart, T + 0.3);
-  hp.exponentialRampToValueAtTime(20, T + 3);
+  hp.setValueAtTime(MIX.hpStart, T + 0.15);
+  hp.exponentialRampToValueAtTime(20, T + SWAP + 0.3);
   return { slot, startAt: start - offset, T, ...v };
 }
 

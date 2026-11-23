@@ -370,7 +370,7 @@ export function mountHost(root, opts = {}) {
   // holds long enough to read, then rolls off as the camera moves on.
   async function howto(step) {
     stage(step, { name: 'howto' });
-    playMusic('howto');
+    playMusic('lobby'); // the lobby song carries on through the how-to
     hud({ round: 'How to play' });
     const el = live('howto');
     const beats = [...el.querySelectorAll('.beat')];
