@@ -21,9 +21,9 @@ export function mountHost(root, opts = {}) {
   const SPEED = Number(params.get('speed')) || opts.speed || 1;
   const wait = (ms) => clock.sleep(ms / SPEED);
   // How long each answer's cutscene holds on screen (Seed: about 12 seconds).
-  // Each answer close-up holds 2 to 4 seconds, longer for longer answers.
+  // Each answer close-up holds 1.5 to 2.5 seconds, longer for longer answers.
   const CUT_FIXED = Number(params.get('cut')) || opts.cutMs || 0;
-  const cutMs = (text) => CUT_FIXED || Math.min(4000, Math.max(2000, 2000 + (text.length - 30) * 40));
+  const cutMs = (text) => CUT_FIXED || Math.min(2500, Math.max(1500, 1500 + (text.length - 30) * 30));
 
   root.classList.add('he-host');
   root.innerHTML = `
