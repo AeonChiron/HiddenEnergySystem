@@ -1,0 +1,286 @@
+/* Illustration motion. Every scene rests in a clear still state; it moves
+   only while its panel or reveal is playing (.play). Text never moves. */
+
+.art { display: block; width: 100%; height: 100%; overflow: visible; }
+:where(.art [class]:not([transform])) { transform-box: fill-box; transform-origin: center; }
+.art text { font-family: var(--font); }
+
+/* gentle float for organelles in big worlds */
+.live .float { animation: float 6s ease-in-out infinite; }
+.live .float.f2 { animation-duration: 7.5s; animation-delay: -2s; }
+.live .float.f3 { animation-duration: 9s; animation-delay: -4s; }
+@keyframes float { 50% { transform: translateY(-6px) rotate(1.5deg); } }
+
+/* ---------- shared particle moves ---------- */
+.play .flow { animation: flow 2.4s linear infinite; }
+.play .flow.d1 { animation-delay: -.4s } .play .flow.d2 { animation-delay: -.8s } .play .flow.d3 { animation-delay: -1.2s } .play .flow.d4 { animation-delay: -1.6s } .play .flow.d5 { animation-delay: -2s }
+@keyframes flow { from { transform: translateX(-30px); } to { transform: translateX(30px); } }
+
+.play .drop-in { animation: drop-in 2.2s cubic-bezier(.5, 0, .3, 1) infinite; }
+.play .drop-in.a2 { animation-delay: .35s } .play .drop-in.a3 { animation-delay: .7s }
+@keyframes drop-in { 0% { transform: translateY(0); opacity: 0; } 15% { opacity: 1; } 70% { transform: translateY(130px) scale(.9); opacity: 1; } 85%, 100% { transform: translateY(150px) scale(.4); opacity: 0; } }
+.sc-revealInsulin .drop-in { --dy: 220px; }
+.play.sc-revealInsulin .drop-in, .play .sc-revealInsulin .drop-in { animation-name: drop-in-l; }
+@keyframes drop-in-l { 0% { transform: translateY(0); opacity: 0; } 15% { opacity: 1; } 70% { transform: translateY(210px) scale(.9); opacity: 1; } 85%, 100% { transform: translateY(230px) scale(.4); opacity: 0; } }
+
+.store-fill { transform-origin: bottom; transform: scaleY(.25); }
+.play .fill-up .store-fill { animation: fill 2.2s ease-out forwards; }
+.play .fill-up.late .store-fill { animation-delay: .5s; }
+.play .fill-up.later .store-fill { animation-delay: 1s; }
+@keyframes fill { to { transform: scaleY(1); } }
+
+.play .key { animation: key 2.2s ease-in-out infinite; }
+.play .key.k2 { animation-delay: .35s } .play .key.k3 { animation-delay: .7s }
+@keyframes key { 0%, 100% { transform: translateY(-4px) rotate(-8deg); } 50% { transform: translateY(4px) rotate(8deg); } }
+
+/* B: sugar bounces off the wall */
+.play .bounce { animation: bounce 1.4s cubic-bezier(.4, 0, .6, 1) infinite; }
+.play .bounce.b2 { animation-delay: .3s } .play .bounce.b3 { animation-delay: .6s }
+@keyframes bounce { 0%, 100% { transform: translateX(-30px); } 50% { transform: translateX(26px) scaleX(.86); } }
+.play .wall { animation: wall 1.4s ease-in-out infinite; }
+@keyframes wall { 50% { transform: translateX(3px); } }
+
+/* C: sugar becomes fat inside the gut */
+.morph .as-fat { opacity: 0; }
+.play .morph .as-sugar { animation: out 2.6s ease-in-out infinite; }
+.play .morph .as-fat { animation: in 2.6s ease-in-out infinite; }
+.play .morph.m2 * { animation-delay: .3s !important } .play .morph.m3 * { animation-delay: .6s !important } .play .morph.m4 * { animation-delay: .9s !important }
+@keyframes out { 0%, 30% { opacity: 1; transform: scale(1) rotate(0); } 50%, 100% { opacity: 0; transform: scale(.3) rotate(90deg); } }
+@keyframes in { 0%, 40% { opacity: 0; transform: scale(.3); } 60% { opacity: 1; transform: scale(1.15); } 70%, 100% { opacity: 1; transform: scale(1); } }
+.play .fall { animation: fall 2.6s ease-in infinite; }
+@keyframes fall { 0% { transform: translate(0, 0); opacity: 1; } 80% { opacity: 1; } 100% { transform: translate(90px, 90px) scale(.6); opacity: 0; } }
+
+/* D: the FULL sign */
+.sign { transform-origin: 318px 330px; transform-box: view-box; }
+.play .sign { animation: sign 2.4s cubic-bezier(.3, 1.6, .5, 1) both; }
+@keyframes sign { 0% { transform: rotate(-20deg) scale(.4); opacity: 0; } 30% { transform: rotate(6deg) scale(1.05); opacity: 1; } 45% { transform: rotate(-3deg); } 60%, 100% { transform: rotate(0); opacity: 1; } }
+.play .smug { animation: smug 2.4s ease-in-out infinite; }
+@keyframes smug { 50% { transform: translateY(-2px); } }
+
+/* Q6 */
+.play .vanish { animation: vanish 1.4s cubic-bezier(.6, 0, .9, .4) infinite; }
+.play .vanish.d1 { animation-delay: .1s } .play .vanish.d2 { animation-delay: .2s } .play .vanish.d3 { animation-delay: .3s } .play .vanish.d4 { animation-delay: .4s }
+@keyframes vanish { 0% { transform: translateY(0); opacity: 1; } 60%, 100% { transform: translateY(170px) scale(.3); opacity: 0; } }
+.play .zip { animation: zip 1.4s linear infinite; }
+@keyframes zip { 50% { opacity: .3; } }
+.pile .glu { opacity: 0; }
+.play .pile .glu, .reveal-on .pile .glu { animation: pile .5s cubic-bezier(.3, 1.6, .5, 1) forwards; }
+.pile .p1 { animation-delay: .4s !important } .pile .p2 { animation-delay: .8s !important } .pile .p3 { animation-delay: 1.2s !important }
+@keyframes pile { from { opacity: 0; transform: translateY(-40px); } to { opacity: 1; transform: none; } }
+.play .key-bounce { animation: key-bounce 1.2s ease-in-out infinite; }
+@keyframes key-bounce { 0%, 100% { transform: translateY(0); } 40% { transform: translateY(16px); } 55% { transform: translateY(4px) rotate(-14deg); } }
+.play .stream .ins { animation: stream 1.8s linear infinite; }
+.play .stream .i1 { animation-delay: -.45s } .play .stream .i2 { animation-delay: -.9s } .play .stream .i3 { animation-delay: -1.35s }
+@keyframes stream { 0% { transform: translateY(-40px); opacity: 0; } 20% { opacity: 1; } 100% { transform: translateY(60px); opacity: 0; } }
+.closed { opacity: 0; }
+.play .closed { animation: slam 2.6s ease-out forwards; }
+.play.sc-pancreasStops .stream, .play .sc-pancreasStops .stream { animation: stop 2.6s steps(1) forwards; }
+@keyframes slam { 0%, 45% { opacity: 0; transform: translateY(-30px) scale(1.2); } 55% { opacity: 1; transform: none; } 100% { opacity: 1; } }
+@keyframes stop { 0%, 50% { opacity: 1; } 51%, 100% { opacity: 0; } }
+.play .shield { animation: shield 2.4s ease-in-out infinite; }
+@keyframes shield { 50% { transform: translateY(-4px); } }
+.play .bounce-off .glu { animation: bo 1.6s ease-in-out infinite; }
+.play .bounce-off .bo2 { animation-delay: .5s; }
+@keyframes bo { 0% { transform: translate(40px, 20px); opacity: 0; } 30% { opacity: 1; } 50% { transform: translate(0, 0); } 100% { transform: translate(50px, -40px); opacity: 0; } }
+.play .pump .ins { animation: stream 1.4s linear infinite; }
+.play .pump .i1, .play .pump .i4 { animation-delay: -.5s } .play .pump .i2, .play .pump .i5 { animation-delay: -1s }
+
+/* Q7 */
+.play .cell-bar { animation: drain 2.4s ease-in forwards; transform-origin: left; }
+@keyframes drain { to { transform: scaleX(.15); } }
+.play .blink { animation: blink 1s steps(2) infinite; }
+@keyframes blink { 50% { opacity: .2; } }
+.play .march { animation: march 2.4s linear infinite; }
+.play .march.m2 { animation-delay: -.8s } .play .march.m3 { animation-delay: -1.6s }
+@keyframes march { from { transform: translateX(-10px); opacity: 0; } 20% { opacity: 1; } 80% { opacity: 1; } to { transform: translateX(160px); opacity: 0; } }
+.play .spin { animation: spin 1s linear infinite; transform-box: view-box !important; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.play .meter { animation: meter 1.2s ease-in-out infinite alternate; transform-origin: left; }
+@keyframes meter { from { transform: scaleX(.4); } to { transform: scaleX(1.9); } }
+.play .fa .fat { animation: tofat 2.4s linear infinite; }
+.play .fa .fa2 { animation-delay: -1.2s; }
+@keyframes tofat { from { transform: translateX(-30px); opacity: 0; } 20% { opacity: 1; } 75% { opacity: 1; } to { transform: translateX(70px); opacity: 0; } }
+.play .ko .ket { animation: ko 2.4s ease-out infinite; }
+.play .ko .k2 { animation-delay: .4s } .play .ko .k3 { animation-delay: .8s }
+@keyframes ko { 0% { transform: translateX(-40px) scale(.4); opacity: 0; } 30% { opacity: 1; transform: translateX(-10px) scale(1); } 100% { transform: translateX(40px); opacity: 0; } }
+.num tspan { opacity: 0; }
+.num .n1 { opacity: 1; }
+.play .num .n1 { animation: n1 2.4s steps(1) infinite; }
+.play .num .n2 { animation: n2 2.4s steps(1) infinite; }
+.play .num .n3 { animation: n3 2.4s steps(1) infinite; }
+@keyframes n1 { 0% { opacity: 1; } 33% { opacity: 0; } }
+@keyframes n2 { 0% { opacity: 0; } 33% { opacity: 1; } 66% { opacity: 0; } }
+@keyframes n3 { 0% { opacity: 0; } 66% { opacity: 1; } }
+.play .arrow { animation: arrow .8s ease-in-out infinite; }
+@keyframes arrow { 50% { transform: translateY(8px); } }
+.play .held { animation: munch .6s ease-in-out infinite; }
+@keyframes munch { 50% { transform: translateY(-4px) rotate(-6deg); } }
+.fuel-fat { transition: width 2s; }
+.play .fuel-sugar { animation: sugar-down 3s ease-in-out forwards; transform-origin: left; }
+@keyframes sugar-down { to { transform: scaleX(.3); } }
+.play .fuel-fat { animation: fat-up 3s ease-in-out forwards; }
+@keyframes fat-up { to { width: 168px; transform: translateX(72px); } }
+
+/* Q8 */
+.phago-ring { transform-origin: center; }
+.play .phago-ring { animation: wrap 2.6s ease-in-out infinite; }
+@keyframes wrap { 0% { stroke-dasharray: 40 300; transform: rotate(0); } 60%, 100% { stroke-dasharray: 280 0; transform: rotate(200deg); } }
+.play .phago-ring2 { animation: wrap 2.6s ease-in-out infinite reverse; }
+.play .dmg { animation: dmg 2.6s ease-in forwards infinite; }
+@keyframes dmg { 0%, 50% { transform: scale(1); opacity: 1; } 90%, 100% { transform: scale(.2) rotate(60deg); opacity: 0; } }
+.reuse circle { opacity: .3; }
+.play .reuse circle { animation: reuse 2.6s ease-out infinite; }
+@keyframes reuse { 0%, 55% { opacity: 0; transform: scale(.2); } 75% { opacity: 1; transform: scale(1.2); } 100% { opacity: 1; transform: scale(1); } }
+.live .autophagy .phago-ring { animation: wrap 4s ease-in-out infinite; }
+.live .autophagy .dmg { animation: dmg 4s ease-in infinite; }
+.live .autophagy .reuse circle { animation: reuse 4s ease-out infinite; }
+.play .glow-brain { animation: glow 1.2s ease-in-out infinite; }
+@keyframes glow { 50% { transform: scale(1.03); } }
+.play .spk { animation: spk 1.2s ease-in-out infinite; opacity: 0; }
+.play .spk.s1 { animation-delay: .3s } .play .spk.s2 { animation-delay: .6s } .play .spk.s3 { animation-delay: .9s }
+@keyframes spk { 0% { opacity: 0; transform: scale(.3); } 40% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(.6); } }
+.play .hunger { animation: hunger 2.4s ease-in-out forwards; transform-origin: bottom; }
+@keyframes hunger { to { transform: scaleY(.25); } }
+.energy { transform-origin: bottom; transform: scaleY(.2); }
+.play .energy { animation: energy 2.4s ease-in-out forwards; }
+@keyframes energy { to { transform: scaleY(1); } }
+.play .reserve .drop { animation: shrink 2.4s ease-in-out forwards; }
+.play .reserve .r1 { animation-delay: .2s } .play .reserve .r2 { animation-delay: .4s } .play .reserve .r3 { animation-delay: .6s }
+@keyframes shrink { to { transform: scale(.55); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .art *, .art { animation: none !important; }
+  .art .store-fill, .art .energy { transform: none; }
+  .art .as-fat, .art .closed, .art .pile .glu { opacity: 1; }
+  .art .as-sugar { opacity: 0; }
+}
+.reduced-motion .art *, .reduced-motion .art { animation: none !important; }
+
+/* ---------- Round 3 ---------- */
+/* Q9 */
+.play .split-l { animation: split-l 2.6s ease-in-out infinite; }
+.play .split-r { animation: split-r 2.6s ease-in-out infinite; }
+@keyframes split-l { 0%, 20% { transform: translateX(14px); } 60%, 100% { transform: translateX(-18px); } }
+@keyframes split-r { 0%, 20% { transform: translateX(-14px); } 60%, 100% { transform: translateX(18px); } }
+.play .pinch { animation: pinch 2.6s ease-in-out infinite; }
+@keyframes pinch { 0%, 30% { opacity: 1; } 60%, 100% { opacity: 0; } }
+.play .lyso-in { animation: lyso-in 2.6s ease-in-out infinite; }
+@keyframes lyso-in { 0%, 30% { transform: translate(0, 0); } 70%, 100% { transform: translate(-50px, -64px) scale(.8); opacity: .4; } }
+.play .mito-big { animation: glow 1.2s ease-in-out infinite; }
+.play .chomp { animation: chomp .7s ease-in-out infinite; transform-origin: top; }
+@keyframes chomp { 50% { transform: scaleY(.25); } }
+.play .hunter { animation: hunt 1.4s ease-in-out infinite; }
+@keyframes hunt { 50% { transform: translateX(10px); } }
+.play .prey { animation: prey .5s ease-in-out infinite; }
+@keyframes prey { 50% { transform: translateX(4px) rotate(4deg); } }
+.play .seq { animation: seq 4s ease-out both; opacity: 0; }
+.play .seq.st2 { animation-delay: .6s } .play .seq.st3 { animation-delay: 1.2s } .play .seq.st4 { animation-delay: 1.8s }
+@keyframes seq { from { opacity: 0; transform: translateY(12px); } 18%, 100% { opacity: 1; transform: none; } }
+
+/* Q10: slow and serious */
+.play .plq { animation: plq 3s ease-out both; }
+.play .plq.q1 { animation-delay: .4s } .play .plq.q2 { animation-delay: .8s } .play .plq.q3 { animation-delay: 1.2s } .play .plq.q4 { animation-delay: 1.6s } .play .plq.q5 { animation-delay: 2s }
+@keyframes plq { from { opacity: 0; transform: scale(.3); } 40%, 100% { opacity: 1; transform: scale(1); } }
+.play .beat { animation: beat 1.6s ease-in-out infinite; }
+@keyframes beat { 0%, 100% { transform: scale(1); } 12% { transform: scale(1.04); } 24% { transform: scale(1); } }
+.play .grow { animation: plq 3s ease-out both; }
+.play .grow.g1 { animation-delay: .6s } .play .grow.g2 { animation-delay: 1.2s } .play .grow.g3 { animation-delay: 1.8s }
+.play .kn { animation: knock 1.6s ease-in-out infinite; }
+.play .kn.k1 { animation-delay: .5s; }
+@keyframes knock { 0%, 100% { transform: translateY(0); } 45% { transform: translateY(44px); } 60% { transform: translateY(34px) rotate(-10deg); } }
+.play .link { animation: link 1.6s linear infinite; }
+@keyframes link { to { stroke-dashoffset: -36; } }
+
+/* Q11 */
+.play .drift { animation: float 5s ease-in-out infinite; }
+.play .drift.d2 { animation-delay: -2s; }
+.play .rain .pr { animation: rain 2.2s ease-in infinite; }
+.play .rain .r1 { animation-delay: -.4s } .play .rain .r2 { animation-delay: -.8s } .play .rain .r3 { animation-delay: -1.2s } .play .rain .r4 { animation-delay: -1.6s } .play .rain .r5 { animation-delay: -2s }
+@keyframes rain { from { transform: translateY(-40px); opacity: 0; } 20% { opacity: 1; } 85% { opacity: 1; } to { transform: translateY(160px); opacity: 0; } }
+.play .z { animation: zz 2.4s ease-out infinite; opacity: 0; }
+.play .z1 { animation-delay: .5s } .play .z2 { animation-delay: 1s }
+@keyframes zz { 0% { opacity: 0; transform: translate(0, 10px); } 30% { opacity: 1; } 100% { opacity: 0; transform: translate(16px, -20px); } }
+.play .belly { animation: breathe 2.4s ease-in-out infinite; transform-origin: bottom; }
+@keyframes breathe { 50% { transform: scaleY(1.25); } }
+.play .orbit { animation: orbit 14s linear infinite; }
+@keyframes orbit { to { transform: rotate(360deg); } }
+
+/* Q12 */
+.play .lift { animation: lift 1.2s ease-in-out infinite; }
+@keyframes lift { 50% { transform: translateY(-8px); } }
+.bar { transform-origin: left center; }
+.play .bar { animation: bar 2.4s cubic-bezier(.3, .7, .2, 1) both; }
+.play .bar.b1 { animation-delay: .3s; }
+@keyframes bar { from { transform: scaleX(0); } }
+.play .end { animation: end 2.4s ease-out both; }
+.play .end.e1 { animation-delay: .3s; }
+@keyframes end { 0%, 70% { opacity: 0; } 100% { opacity: 1; } }
+.play .route { animation: link 1.2s linear infinite; }
+.play .runner { animation: lift .5s ease-in-out infinite; }
+
+/* ---------- second pass: slow, simple motion ---------- */
+.play .sf { animation: sf 5s ease-in-out infinite; }
+.play .sf.s1 { animation-delay: 1.2s; }
+@keyframes sf { 0% { transform: translateY(0); opacity: 0; } 15% { opacity: 1; } 75% { transform: translateY(150px) scale(.8); opacity: 1; } 90%, 100% { transform: translateY(160px) scale(.5); opacity: 0; } }
+.jf { opacity: .25; }
+.play .jf { animation: jf 6s ease-out forwards; }
+.play .jf.j1 { animation-delay: 1.5s; } .play .jf.j2 { animation-delay: 3s; }
+@keyframes jf { to { opacity: 1; } }
+.lvl { transform-origin: left center; }
+.play .charge .lvl { animation: charge 6s ease-in-out forwards; }
+@keyframes charge { from { transform: scaleX(1); } to { transform: scaleX(3.2); } }
+.play .drain .lvl { animation: drain-slow 7s ease-in-out forwards; }
+@keyframes drain-slow { to { transform: scaleX(.08); } }
+.fillup .lvl { transform: scaleX(.15); }
+.play .fillup .lvl { animation: fillup 6s ease-in-out forwards; }
+@keyframes fillup { to { transform: scaleX(1); } }
+.play .reserve .drop { animation-duration: 6s; }
+.play .broom { animation: broom 2.6s ease-in-out infinite; }
+@keyframes broom { 50% { transform: translateX(18px) rotate(4deg); } }
+.play .sw { animation: sw 2.6s ease-in infinite; }
+.play .sw.w1 { animation-delay: .3s; } .play .sw.w2 { animation-delay: .6s; }
+@keyframes sw { 0%, 30% { transform: translateX(0); opacity: 1; } 100% { transform: translateX(90px); opacity: 0; } }
+.flame { transform-origin: bottom center; }
+.play .flame { animation: flame 2.4s ease-in-out infinite; }
+@keyframes flame { 50% { transform: scale(1.05, .95); } }
+.play .ko.slow .ket { animation-duration: 5s; }
+.hand-h, .hand-m, .needle { transform-box: view-box; transform-origin: 0 0; }
+.play .hand-m { animation: turn 8s linear infinite; }
+.play .hand-h { animation: turn 96s linear infinite; }
+@keyframes turn { to { transform: rotate(360deg); } }
+.play .needle { animation: needle 3s ease-in-out infinite; }
+@keyframes needle { 50% { transform: rotate(5deg); } }
+.play .spin-slow, .live .spin-slow { animation: turn 24s linear infinite; }
+.play .spin-fast { animation: turn 5s linear infinite; }
+.play .stage-a { animation: to-bin 6s ease-in-out infinite; }
+@keyframes to-bin { 0%, 15% { transform: none; opacity: 1; } 55% { transform: translate(140px, 120px) scale(.4); opacity: 0; } 100% { opacity: 0; } }
+.play .stage-c .b { animation: reuse 6s ease-out infinite; }
+.play .shake { animation: lift 3s ease-in-out infinite; }
+.play .split-l, .play .split-r { animation-duration: 5s; animation-direction: alternate; animation-timing-function: cubic-bezier(.45, 0, .2, 1); }
+.play .chomp { animation-duration: 1.8s; }
+.play .hunter { animation-duration: 3s; }
+.play .cutlery { animation: lift 3s ease-in-out infinite; }
+.play .kn { animation-duration: 3s; }
+.play .kn.k2 { animation-delay: 1s; }
+
+/* ---- Seed's pictures (Midjourney). Gentle motion only, so the pictures keep their quality. ---- */
+.pic { position: relative; width: 100%; height: 100%; overflow: hidden; border-radius: 28px; background: #e9e4da; box-shadow: 0 10px 30px rgb(20 40 40 / .12); }
+.pic img { display: block; width: 100%; height: 100%; object-fit: cover; transform-origin: 50% 50%; will-change: transform; }
+.reveal-art .pic, .round-art .pic, .lobby-art .pic { aspect-ratio: 1; width: auto; height: 100%; max-width: 100%; margin: 0 auto; }
+.round-art .pic { height: auto; width: 100%; }
+.z-round1 .round-art .pic { aspect-ratio: 16 / 9; height: auto; width: 100%; position: relative; top: 50%; transform: translateY(-50%); }
+.z-round1 .round-art .pic img { object-fit: contain; background: #fff; }
+/* slow camera drift */
+:is(.live, .play) .pic-in img { animation: pic-in 14s ease-in-out infinite alternate; }
+:is(.live, .play) .pic-out img { animation: pic-out 14s ease-in-out infinite alternate; }
+:is(.live, .play) .pic-left img { animation: pic-left 16s ease-in-out infinite alternate; }
+:is(.live, .play) .pic-right img { animation: pic-right 16s ease-in-out infinite alternate; }
+:is(.live, .play) .pic-up img { animation: pic-up 15s ease-in-out infinite alternate; }
+@keyframes pic-in { from { transform: scale(1.02); } to { transform: scale(1.1); } }
+@keyframes pic-out { from { transform: scale(1.1); } to { transform: scale(1.02); } }
+@keyframes pic-left { from { transform: scale(1.08) translateX(2%); } to { transform: scale(1.08) translateX(-2%); } }
+@keyframes pic-right { from { transform: scale(1.08) translateX(-2%); } to { transform: scale(1.08) translateX(2%); } }
+@keyframes pic-up { from { transform: scale(1.08) translateY(2%); } to { transform: scale(1.08) translateY(-2%); } }
+/* faint ripple on the big pictures (intros and reveals) */
+:is(.live, .play) .pic-big img { filter: url(#he-ripple); }
+@media (prefers-reduced-motion: reduce) { .pic img { animation: none !important; filter: none !important; } }
