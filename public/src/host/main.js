@@ -8,6 +8,7 @@ import { buildWorld, zoneEl, HOWTO_BEATS } from './world.js';
 import { sfx, unlockAudio, setMuted, isMuted } from '../sfx.js';
 import { confetti } from './confetti.js';
 import { clock } from './clock.js';
+import { playMusic, unlockMusic, holdMusic, muteMusic, preloadMusic } from '../music.js';
 import qrcode from '../../vendor/qrcode.js';
 
 const $ = (sel, el = document) => el.querySelector(sel);
@@ -247,11 +248,13 @@ export function mountHost(root, opts = {}) {
   }
   $('.hud-next', root).addEventListener('click', () => waiters.next && waiters.next());
 
+  preloadMusic();
+  window.addEventListener('pointerdown', () => { unlockAudio(); unlockMusic(); });
   window.addEventListener('keydown', (e) => {
     if (e.target.closest && e.target.closest('input,textarea')) return;
     if (e.key === ' ' || e.key === 'Enter' || e.key === 'ArrowRight') {
       e.preventDefault();
-      unlockAudio();
+      unlockAudio(); unlockMusic();
       if (waiters.start) waiters.start();
       else if (waiters.next) waiters.next();
     }
@@ -265,6 +268,7 @@ export function mountHost(root, opts = {}) {
   function togglePause() {
     if (clock.paused) { clock.resume(); net.send({ t: 'host:unhold' }); } else { clock.pause(); net.send({ t: 'host:hold' }); }
     root.classList.toggle('paused', clock.paused);
+    holdMusic(clock.paused);
     root.querySelector('[data-tool="pause"]').textContent = clock.paused ? 'Play' : 'Pause';
   }
   root.querySelector('[data-tool="pause"]').addEventListener('click', togglePause);
@@ -287,7 +291,7 @@ export function mountHost(root, opts = {}) {
       onPlay: (step) => { location.href = `${location.pathname}?new&bots=7&from=${step}`; },
     });
   });
-  function toggleMute() { setMuted(!isMuted()); root.querySelector('[data-tool="mute"]').textContent = isMuted() ? 'Sound off' : 'Sound on'; }
+  function toggleMute() { setMuted(!isMuted()); muteMusic(isMuted()); root.querySelector('[data-tool="mute"]').textContent = isMuted() ? 'Sound off' : 'Sound on'; }
   function toggleFs() { if (document.fullscreenElement) document.exitFullscreen(); else root.requestFullscreen?.().catch(() => {}); }
 
   const stage = (step, st) => net.send({ t: 'host:stage', step, stage: st });
@@ -328,6 +332,7 @@ export function mountHost(root, opts = {}) {
 
   async function lobby(step) {
     stage(step, { name: 'lobby' });
+    playMusic('lobby');
     hud();
     $('.hud-join', root).hidden = true;
     const el = live('lobby');
@@ -342,7 +347,7 @@ export function mountHost(root, opts = {}) {
     startBtn.innerHTML = 'Start the game';
     el.querySelector('.lobby-players').appendChild(startBtn);
     await new Promise((res) => {
-      const go = () => { unlockAudio(); waiters.start = null; res(); };
+      const go = () => { unlockAudio(); unlockMusic(); waiters.start = null; res(); };
       waiters.start = go;
       startBtn.addEventListener('click', go);
     });
@@ -355,6 +360,7 @@ export function mountHost(root, opts = {}) {
   // holds long enough to read, then rolls off as the camera moves on.
   async function howto(step) {
     stage(step, { name: 'howto' });
+    playMusic('howto');
     hud({ round: 'How to play' });
     const el = live('howto');
     const beats = [...el.querySelectorAll('.beat')];
@@ -383,6 +389,7 @@ export function mountHost(root, opts = {}) {
   async function roundIntro(step, r) {
     const info = roundInfo(r);
     stage(step, { name: 'roundIntro', round: r });
+    playMusic(`round${r}`);
     hud({ round: `Round ${r}`, q: info.name });
     $('.hud-join', root).hidden = true;
     live(`round${r}`);
@@ -580,6 +587,7 @@ export function mountHost(root, opts = {}) {
 
   async function bonusIntro(step) {
     stage(step, { name: 'bonusIntro', round: 'bonus' });
+    playMusic('bonus');
     hud({ round: 'Final bonus' });
     live('bonusIntro');
     await cam.fly(frameOf('bonusIntro', 0));
@@ -589,6 +597,7 @@ export function mountHost(root, opts = {}) {
 
   async function podium(step) {
     stage(step, { name: 'podium' });
+    playMusic('winners');
     hud();
     const list = await getStandings('final');
     const el = live('podium');
