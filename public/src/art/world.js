@@ -4,7 +4,14 @@ import { cell, mito, lysosome, damaged, blocks, body, brain, liver, pancreas, st
 
 const f = (n) => Math.round(n * 10) / 10;
 
-export function logoMark(size = 96) {
+// Seed's logo (Nov 2026): a blue pinwheel that turns slowly, with a little
+// momentum: it eases into each turn, coasts, and settles like a real wheel.
+export function logoMark() {
+  const src = (globalThis.HE_IMG && globalThis.HE_IMG.logo) || '/img/logo.webp';
+  return `<span class="he-logo"><img src="${src}" alt="" draggable="false"></span>`;
+}
+
+export function logoMarkOld(size = 96) {
   return svg('0 0 120 120', `
     ${paper(blob(60, 62, 50, .05, 10, 4), C.sage, { dx: 2, dy: 4, grain: .2 })}
     ${paper(blob(60, 60, 41, .05, 10, 4), C.ivory, { shadow: false, grain: .1 })}

@@ -118,3 +118,4 @@
 .bet { flex: 1 1 0; min-width: 0; padding: 10px 2px 9px; border-radius: 16px; }
 .bet b { font-size: 21px; }
 .bet[data-bet="0"] { font-size: 14px; line-height: 1.1; color: var(--ink-2, #445); }
+.join-brand .he-logo { width: 64px; height: 64px; flex: none; }
