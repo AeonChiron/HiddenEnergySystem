@@ -44,7 +44,7 @@ function load(slot) {
   return bufs[slot];
 }
 
-export function preloadMusic() { if (ensure()) SLOTS.forEach(load); }
+export function preloadMusic() { if (ensure()) { SLOTS.forEach(load); loadGrid(); } }
 
 // --- Transitions, the way a DJ mixes ---------------------------------------
 // Two full tracks overlapping for seconds sounds muddy: two basslines and two
@@ -56,14 +56,14 @@ export const MIX = { FADE, volume: VOLUME, out: FADE * 1.1, inDelay: 0.35, lpEnd
 
 export function fadeOutVoice(ctx, v, at = ctx.currentTime, ms = MIX.out) {
   const g = v.gain.gain, f = v.lp.frequency, gv = at > ctx.currentTime ? MIX.volume : g.value;
-  g.cancelScheduledValues(at); f.cancelScheduledValues(at);
+  if (g.cancelAndHoldAtTime) { g.cancelAndHoldAtTime(at); f.cancelAndHoldAtTime(at); } else { g.cancelScheduledValues(at); f.cancelScheduledValues(at); }
   f.setValueAtTime(20000, at);
   f.exponentialRampToValueAtTime(MIX.lpEnd, at + ms);
   try { g.setValueCurveAtTime(curve(gv, 0), at, ms); } catch { g.setValueAtTime(gv, at); g.linearRampToValueAtTime(0, at + ms); }
   try { v.src.stop(at + ms + 0.05); } catch {}
 }
 
-export function startVoice(ctx, dest, buf, { loop = true, at = ctx.currentTime, fade = MIX.FADE, volume = VOLUME } = {}) {
+export function startVoice(ctx, dest, buf, { loop = true, at = ctx.currentTime, fade = MIX.FADE, volume = VOLUME, offset = 0 } = {}) {
   const src = ctx.createBufferSource();
   const hp = ctx.createBiquadFilter();
   const lp = ctx.createBiquadFilter();
@@ -78,18 +78,120 @@ export function startVoice(ctx, dest, buf, { loop = true, at = ctx.currentTime, 
   gain.gain.setValueCurveAtTime(curve(0, volume), at, fade);
   if (!loop) gain.gain.setValueCurveAtTime(curve(volume, 0), Math.max(at + fade + 0.1, at + buf.duration - fade), fade);
   src.connect(hp).connect(lp).connect(gain).connect(dest);
-  src.start(at);
+  src.start(at, offset);
   return { src, hp, lp, gain };
+}
+
+// --- Changing tracks on the beat ---------------------------------------------
+// The way game composers handle a cue that can come at any moment (Wwise and
+// FMOD call it horizontal re-sequencing): never cut where the click lands.
+// Wait for the outgoing track's next beat, let the new track's own pickup run
+// up to that beat so its first downbeat lands exactly there, and let the old
+// track echo out in tempo instead of stopping. A soft swell rises into the
+// switch and hides the seam. beats.json holds every track's beat times.
+let grid = null;
+const loadGrid = () => grid || (grid = fetch(`${base()}beats.json`).then((r) => (r.ok ? r.json() : {})).catch(() => ({})));
+
+const PREROLL = 2; // seconds of the new track's pickup allowed before the switch
+
+function nextBeat(g, pos, after) {
+  // first beat at least `after` seconds past `pos` in a looping track
+  const b = g.beats;
+  for (let lap = 0; lap < 3; lap++) {
+    for (const t of b) { const tt = t + lap * g.dur; if (tt - pos >= after) return tt - pos; }
+  }
+  return after;
+}
+
+function swell(ctx, dest, at, len) {
+  // filtered noise that rises into the switch and falls just after it
+  const n = Math.ceil(ctx.sampleRate * (len + 1.2));
+  const buf = ctx.createBuffer(1, n, ctx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
+  const src = ctx.createBufferSource(); src.buffer = buf;
+  const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 0.9;
+  bp.frequency.setValueAtTime(400, at - len);
+  bp.frequency.exponentialRampToValueAtTime(5000, at);
+  bp.frequency.exponentialRampToValueAtTime(1200, at + 1.2);
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(0.0001, at - len);
+  g.gain.exponentialRampToValueAtTime(0.05, at - 0.02);
+  g.gain.exponentialRampToValueAtTime(0.0001, at + 1.2);
+  src.connect(bp).connect(g).connect(dest);
+  src.start(at - len); src.stop(at + 1.25);
+}
+
+function echoOut(ctx, dest, v, at, beat) {
+  // the old track's last beat repeats in tempo, darker each time, and fades
+  const send = ctx.createGain(), dl = ctx.createDelay(2), fb = ctx.createGain(), tone = ctx.createBiquadFilter();
+  send.gain.value = 0;
+  send.gain.setValueAtTime(0, at);
+  send.gain.linearRampToValueAtTime(0.4, at + 0.05);
+  send.gain.setValueAtTime(0.4, at + beat);
+  send.gain.linearRampToValueAtTime(0, at + beat * 2);
+  dl.delayTime.value = Math.min(1.9, beat);
+  fb.gain.value = 0.35;
+  tone.type = 'lowpass'; tone.frequency.value = 2600;
+  v.lp.connect(send).connect(dl).connect(tone).connect(fb).connect(dl);
+  tone.connect(dest);
+  if (typeof setTimeout === 'function' && !(ctx instanceof OfflineAudioContext)) setTimeout(() => { try { send.disconnect(); dl.disconnect(); fb.disconnect(); tone.disconnect(); } catch {} }, (at - ctx.currentTime + 12) * 1000);
 }
 
 export async function playMusic(slot) {
   if (!ensure() || !SLOTS.includes(slot)) return;
   if (wanted === slot) return;
   wanted = slot;
-  if (cur) { fadeOutVoice(ctx, cur); cur = null; }
-  const buf = await load(slot);
-  if (!buf || wanted !== slot) return;
-  cur = { slot, ...startVoice(ctx, duck, buf, { loop: slot !== 'winners', at: ctx.currentTime + MIX.inDelay }) };
+  const [buf, g] = await Promise.all([load(slot), loadGrid()]);
+  if (wanted !== slot) return;
+  const old = cur;
+  cur = null;
+  const now = ctx.currentTime;
+  const gin = g[slot], gout = old && g[old.slot];
+  const loop = slot !== 'winners';
+  if (!buf) { if (old) fadeOutVoice(ctx, old); return; }
+  if (!old || !gout || !gin || !gin.beats.length || ctx.state !== 'running') {
+    if (old) fadeOutVoice(ctx, old);
+    cur = { slot, startAt: now + MIX.inDelay, ...startVoice(ctx, duck, buf, { loop, at: now + MIX.inDelay }) };
+    return;
+  }
+  cur = crossTo(ctx, duck, old, slot, buf, gin, gout, now, loop);
+}
+
+// Beat-matched change from voice `old` (playing track gout) to `buf` (track gin).
+export function crossTo(ctx, dest, old, slot, buf, gin, gout, now = ctx.currentTime, loop = true) {
+  // when the new track's first downbeat should land
+  const pickup = Math.min(PREROLL, gin.beats[0]);
+  const pos = (((now - old.startAt) % gout.dur) + gout.dur) % gout.dur;
+  const T = now + nextBeat(gout, pos, pickup + 0.12);
+  const offset = gin.beats[0] - pickup;
+  const start = T - pickup;
+  const beat = gout.beats.length > 1 ? gout.beats[1] - gout.beats[0] : 0.5;
+  // Keep the total level steady: the old track eases down a little while the
+  // new pickup comes in thin and quiet, then they swap on the beat with
+  // equal-power curves, and the new bass only blooms once the old one is gone.
+  const og = old.gain.gain;
+  if (og.cancelAndHoldAtTime) og.cancelAndHoldAtTime(now); else og.cancelScheduledValues(now);
+  og.setValueAtTime(VOLUME, now);
+  og.linearRampToValueAtTime(VOLUME * 0.8, T);
+  const f = old.lp.frequency;
+  if (f.cancelAndHoldAtTime) f.cancelAndHoldAtTime(now); else f.cancelScheduledValues(now);
+  f.setValueAtTime(20000, T);
+  f.exponentialRampToValueAtTime(MIX.lpEnd, T + 2.6);
+  try { og.setValueCurveAtTime(curve(VOLUME * 0.8, 0), T, 2.6); } catch { og.linearRampToValueAtTime(0, T + 2.6); }
+  try { old.src.stop(T + 2.65); } catch {}
+  echoOut(ctx, dest, old, T, beat);
+  swell(ctx, dest, T, Math.max(0.6, T - now - 0.05));
+  const v = startVoice(ctx, dest, buf, { loop, at: start, fade: 0.1, offset });
+  const ng = v.gain.gain, hp = v.hp.frequency;
+  ng.cancelScheduledValues(start); hp.cancelScheduledValues(start);
+  ng.setValueAtTime(0, start);
+  ng.linearRampToValueAtTime(VOLUME * 0.22, T);
+  try { ng.setValueCurveAtTime(curve(VOLUME * 0.22, VOLUME), T, 2.4); } catch { ng.linearRampToValueAtTime(VOLUME, T + 2.4); }
+  hp.setValueAtTime(MIX.hpStart, start);
+  hp.setValueAtTime(MIX.hpStart, T + 0.3);
+  hp.exponentialRampToValueAtTime(20, T + 3);
+  return { slot, startAt: start - offset, T, ...v };
 }
 
 // Sidechain: sound effects push the music down for a moment so they read

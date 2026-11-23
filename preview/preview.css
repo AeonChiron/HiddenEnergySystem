@@ -1,0 +1,21 @@
+html, body { background: #eef1ee; color: var(--ink); }
+.preview { min-height: 100%; background: #eef1ee; }
+.pv-wrap { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 24px; padding-block: 24px; padding-left: max(24px, env(safe-area-inset-left, 0px)); padding-right: max(24px, env(safe-area-inset-right, 0px)); max-width: 1600px; margin: 0 auto; align-items: start; }
+.pv-16x9 { position: relative; aspect-ratio: 16 / 9; border-radius: 18px; overflow: hidden; box-shadow: 0 10px 40px rgba(19,40,43,.12); background: #fff; }
+.pv-16x9 #host { position: absolute; inset: 0; }
+.pv-device { height: 700px; border-radius: 40px; border: 10px solid #13282b; overflow: auto; background: var(--board); }
+.pv-device #phone { min-height: 100%; }
+.pv-device .he-player { min-height: 680px; }
+.pv-cap { font-size: 14px; color: #5b6e6c; margin: 10px 4px 0; }
+@media (max-width: 980px) { .pv-wrap { grid-template-columns: 1fr; padding-block: 16px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); } .pv-phone { justify-self: center; width: min(360px, 100%); } }
+
+.pv-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; max-width: 1600px; margin: 0 auto; padding-block: 16px 0; padding-left: max(24px, env(safe-area-inset-left, 0px)); padding-right: max(24px, env(safe-area-inset-right, 0px)); }
+.pv-name { margin: 0; font-weight: 800; font-size: 18px; letter-spacing: -.01em; }
+.pv-modes { display: flex; gap: 6px; background: #fff; border-radius: 999px; padding: 4px; border: 2px solid var(--line); }
+.pv-mode { text-decoration: none; color: var(--ink-2); font-weight: 700; font-size: 15px; padding: 8px 16px; border-radius: 999px; }
+.pv-mode[aria-current="true"] { background: var(--teal); color: #fff; }
+.pv-tour { position: fixed; inset: 0; z-index: 20; background: #fff; }
+.pv-tour #tour { position: absolute; inset: 0; }
+.pv-auto { margin: 12px 4px 0; font: inherit; font-weight: 700; font-size: 15px; padding: 10px 18px; border-radius: 999px; border: 2px solid #1d5f5e; background: #fff; color: #1d5f5e; cursor: pointer; }
+.pv-auto[aria-pressed="true"] { background: #1d5f5e; color: #fff; }
+.pv-auto-cap { margin-top: 6px; }
