@@ -1,3 +1,4 @@
+import { clock } from './clock.js';
 // Camera over one continuous whiteboard. World units are design pixels at a
 // 1920x1080 reference; the stage scales to whatever screen the host has.
 //   cam.set({x, y, z})               jump
@@ -66,9 +67,10 @@ export class Camera {
     this.stop();
     const dur = Math.max(1, (ms * PACE) / this.speed);
     return new Promise((resolve) => {
-      const t0 = performance.now();
-      const step = (now) => {
-        const t = Math.min(1, (now - t0) / dur);
+      const t0 = clock.now();
+      const step = () => {
+        if (clock.paused) { this.anim.raf = requestAnimationFrame(step); return; }
+        const t = Math.min(1, (clock.now() - t0) / dur);
         this.pos = fn(t);
         this.apply();
         if (t < 1) this.anim.raf = requestAnimationFrame(step);

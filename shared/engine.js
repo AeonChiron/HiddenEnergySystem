@@ -151,6 +151,8 @@ export class Hub {
       case 'host:bots': return this.addBots(room, Math.max(0, Math.min(40, Number(msg.n) || 0)));
       case 'host:kick': return this.kick(room, String(msg.id));
       case 'host:restart': return this.restart(room);
+      case 'host:hold': return this.hold(room);
+      case 'host:unhold': return this.unhold(room);
       default: return;
     }
   }
@@ -275,10 +277,34 @@ export class Hub {
     if (room.host) room.host.send(this.openForHost(room));
     this.scheduleBots(room, q);
     this.sendProgress(room);
+    if (room.held) this.hold(room);
   }
 
   remaining(room) {
+    if (room.open.heldLeft != null) return room.open.heldLeft;
     return Math.max(0, room.open.deadline - this.now());
+  }
+
+  // Test mode pause: freeze the open question's timer, then pick it back up.
+  hold(room) {
+    room.held = true;
+    if (!room.open || room.open.heldLeft != null) return;
+    room.open.heldLeft = this.remaining(room);
+    this.clearTimeout(room.open.timer);
+    const msg = { t: 'timer', n: room.open.n, remaining: room.open.heldLeft, held: true };
+    for (const p of room.players.values()) if (p.conn) p.conn.send(msg);
+  }
+
+  unhold(room) {
+    room.held = false;
+    const o = room.open;
+    if (!o || o.heldLeft == null) return;
+    o.deadline = this.now() + o.heldLeft;
+    o.timer = this.setTimeout(() => this.closeQuestion(room), o.heldLeft + CLOSE_GRACE_MS);
+    o.heldLeft = null;
+    const msg = { t: 'timer', n: o.n, remaining: this.remaining(room) };
+    for (const p of room.players.values()) if (p.conn) p.conn.send(msg);
+    if (room.host) room.host.send(msg);
   }
 
   openForHost(room) {

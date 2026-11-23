@@ -85,9 +85,13 @@ export function mountPlayer(root, opts = {}) {
         }
         state.view = viewForStage(m.stage.name);
         break;
+      case 'timer':
+        if (state.open && state.open.question?.n === m.n) { state.deadline = performance.now() + m.remaining; state.heldLeft = m.held ? m.remaining : null; if (!m.held && state.view === 'answer') tick(); }
+        break;
       case 'open':
         state.open = m;
         state.deadline = performance.now() + m.remaining;
+        state.heldLeft = null;
         state.locked = m.locked;
         state.selected = m.locked;
         state.lockedBet = m.lockedBet;
@@ -405,12 +409,12 @@ export function mountPlayer(root, opts = {}) {
     const secs = $('.secs', root);
     if (!bar || !state.open) return;
     const total = state.open.total;
-    const left = Math.max(0, state.deadline - performance.now());
+    const left = state.heldLeft ?? Math.max(0, state.deadline - performance.now());
     bar.style.transform = `scaleX(${left / total})`;
     const s = Math.ceil(left / 1000);
     if (secs.textContent !== String(s)) secs.textContent = s;
     root.classList.toggle('hurry', left < 5000);
-    if (left > 0) timerRaf = requestAnimationFrame(tick);
+    if (left > 0 && state.heldLeft == null) timerRaf = requestAnimationFrame(tick);
   }
 
   function renderStatus() {

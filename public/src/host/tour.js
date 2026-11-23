@@ -21,6 +21,7 @@ export function mountTour(root, content, opts = {}) {
       <p class="tour-label"><b></b><span></span></p>
       <button class="tour-btn icon" data-t="next" title="Next (→)" aria-label="Next">→</button>
       <button class="tour-btn" data-t="replay" title="Replay the animation (R)">Replay</button>
+      ${opts.onPlay ? '<button class="tour-btn play" data-t="play" title="Play the real show from this screen, with timing">&#9654; Play from here</button>' : ''}
       ${opts.onClose ? '<button class="tour-btn close" data-t="close">Back to the game</button>' : ''}
     </nav>`;
   const world = root.querySelector('#tour-world');
@@ -152,7 +153,23 @@ export function mountTour(root, content, opts = {}) {
     else if (t === 'all') overview();
     else if (t === 'replay' && at >= 0) apply(stops[at]);
     else if (t === 'close') opts.onClose();
+    else if (t === 'play') opts.onPlay(stepFor(at >= 0 ? stops[at].zone : 'lobby'));
   });
+  // Which step of the real show a board zone belongs to.
+  function stepFor(zone) {
+    const steps = content.steps || [];
+    const m = zone.match(/^(lobby|howto|round|q|r|disc|lb|bonusIntro|podium)(\d*)/);
+    if (!m) return 0;
+    const [, k, d] = m; const n = Number(d);
+    const i = steps.findIndex((s) =>
+      (k === 'lobby' && s.type === 'lobby') || (k === 'howto' && s.type === 'howto') ||
+      (k === 'round' && s.type === 'roundIntro' && s.round === n) ||
+      ((k === 'q' || k === 'r') && s.type === 'question' && s.n === n) ||
+      (k === 'disc' && s.type === 'discovery' && s.round === n) ||
+      (k === 'lb' && s.type === 'leaderboard' && s.round === n) ||
+      (k === 'bonusIntro' && s.type === 'bonusIntro') || (k === 'podium' && s.type === 'podium'));
+    return Math.max(0, i);
+  }
   // Click on the board: jump to the nearest stop in that zone.
   world.addEventListener('click', (e) => {
     const z = e.target.closest('.zone');

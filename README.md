@@ -54,9 +54,10 @@ Optional recorded sounds: add `public/sfx/<name>.mp3` and list the names in
 
 ## Test-mode buttons
 
-Hover the top-right corner of the big screen for **Whole board** (fly through
-every screen of the show, for checking) and **Restart** (everyone back to the
-lobby with $100,000). Phones have a **Leave** button. Whole board is for
+Hover the top-right corner of the big screen for **Pause** (or press P: freezes
+the show and the answer timer), **Whole board** (fly through every screen; its
+**Play from here** button starts the real show at that screen with practice
+players) and **Restart** (everyone back to the lobby with $100,000). Phones have a **Leave** button. Whole board is for
 testing and will be removed in the final cut.
 
 ## Solo demo (GitHub Pages)

@@ -259,3 +259,20 @@ test('a full game can be played step by step', () => {
   assert.ok(final.every((s) => s.final));
   assert.equal(new Set(final.map((s) => s.rank)).size, 4);
 });
+
+test('pause holds the answer timer and resumes with the time that was left', () => {
+  const { hub, host, players, clock } = setup(2);
+  hub.handle(host, { t: 'host:open', n: 5 });
+  clock.advance(5_000);
+  hub.handle(host, { t: 'host:hold' });
+  assert.equal(players[0].last('timer').held, true);
+  assert.equal(players[0].last('timer').remaining, 15_000);
+  clock.advance(60_000);
+  assert.equal(host.all('results').length, 0);
+  hub.handle(host, { t: 'host:unhold' });
+  assert.equal(host.last('timer').remaining, 15_000);
+  clock.advance(14_000);
+  assert.equal(host.all('results').length, 0);
+  clock.advance(2_000);
+  assert.equal(host.all('results').length, 1);
+});

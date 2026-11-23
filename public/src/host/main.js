@@ -7,6 +7,7 @@ import { Camera } from './camera.js';
 import { buildWorld, zoneEl, HOWTO_BEATS } from './world.js';
 import { sfx, unlockAudio, setMuted, isMuted } from '../sfx.js';
 import { confetti } from './confetti.js';
+import { clock } from './clock.js';
 import qrcode from '../../vendor/qrcode.js';
 
 const $ = (sel, el = document) => el.querySelector(sel);
@@ -17,7 +18,7 @@ const pad2 = (n) => String(n).padStart(2, '0');
 export function mountHost(root, opts = {}) {
   const params = new URLSearchParams(location.search);
   const SPEED = Number(params.get('speed')) || opts.speed || 1;
-  const wait = (ms) => new Promise((r) => setTimeout(r, ms / SPEED));
+  const wait = (ms) => clock.sleep(ms / SPEED);
   // How long each answer's cutscene holds on screen (Seed: about 12 seconds).
   // Each answer close-up holds 5 to 7 seconds, longer for longer answers.
   const CUT_FIXED = Number(params.get('cut')) || opts.cutMs || 0;
@@ -35,6 +36,7 @@ export function mountHost(root, opts = {}) {
       <div class="hud-tools">
         <button class="tool" data-tool="mute" title="Mute (M)">Sound on</button>
         <button class="tool" data-tool="fs" title="Fullscreen (F)">Fullscreen</button>
+        <button class="tool" data-tool="pause" title="Pause (P)">Pause</button>
         <button class="tool" data-tool="board" title="See the whole board (test mode)">Whole board</button>
         <button class="tool" data-tool="restart" title="Start over from the lobby">Restart</button>
       </div>
@@ -78,7 +80,7 @@ export function mountHost(root, opts = {}) {
         const fresh = !S.content || S.code !== m.code || m.step === 0;
         S.code = m.code; S.key = m.key; S.results = m.results || {};
         ss.set({ code: m.code, key: m.key });
-        if (m.open) { S.open = { n: m.open.n, total: m.open.total }; S.deadline = performance.now() + m.open.remaining; }
+        if (m.open) { S.open = { n: m.open.n, total: m.open.total }; S.deadline = clock.now() + m.open.remaining; }
         if (!S.content) {
           S.content = m.content;
           S.zones = buildWorld($('#world', root), m.content);
@@ -86,15 +88,17 @@ export function mountHost(root, opts = {}) {
           setupJoin();
           if (params.has('bots') || opts.previewBots) net.send({ t: 'host:bots', n: Number(params.get('bots')) || opts.previewBots || 8 });
         }
-        if (!S.running) startShow(fresh ? (params.has('from') ? Number(params.get('from')) : 0) : m.step);
+        const from = params.has('from') ? Number(params.get('from')) : opts.from || 0;
+        if (!S.running) startShow(fresh ? from : m.step);
         break;
       }
       case 'host:gone': ss.clear(); net.send({ t: 'host:create' }); break;
       case 'host:replaced': showStatus('This game is now open on another screen.'); break;
       case 'players': updatePlayers(m.list, m.newId); break;
+      case 'timer': S.deadline = clock.now() + m.remaining; break;
       case 'opened': {
         S.open = { n: m.n, total: m.total };
-        S.deadline = performance.now() + m.remaining;
+        S.deadline = clock.now() + m.remaining;
         const w = waiters.opened.get(m.n); if (w) { waiters.opened.delete(m.n); w(); }
         break;
       }
@@ -204,7 +208,7 @@ export function mountHost(root, opts = {}) {
     let lastSec = null;
     const tick = () => {
       if (!S.open) return;
-      const left = Math.max(0, S.deadline - performance.now());
+      const left = Math.max(0, S.deadline - clock.now());
       const f = left / S.open.total;
       arc.style.strokeDashoffset = C * (1 - f);
       const s = Math.ceil(left / 1000);
@@ -233,12 +237,12 @@ export function mountHost(root, opts = {}) {
     btn.querySelector('span').textContent = label;
     btn.hidden = false;
     btn.classList.remove('counting');
-    let t = 0;
+    let cancel = () => {};
     const ms = AUTO ? autoMs / SPEED : 0;
     if (ms > 0) { btn.style.setProperty('--t', `${ms}ms`); void btn.offsetWidth; btn.classList.add('counting'); }
     return new Promise((res) => {
-      waiters.next = () => { clearTimeout(t); btn.hidden = true; btn.classList.remove('counting'); waiters.next = null; res(); };
-      if (ms > 0) t = setTimeout(() => waiters.next && waiters.next(), ms);
+      waiters.next = () => { cancel(); btn.hidden = true; btn.classList.remove('counting'); waiters.next = null; res(); };
+      if (ms > 0) cancel = clock.after(ms, () => waiters.next && waiters.next());
     });
   }
   $('.hud-next', root).addEventListener('click', () => waiters.next && waiters.next());
@@ -257,6 +261,14 @@ export function mountHost(root, opts = {}) {
   });
   root.querySelector('[data-tool="mute"]').addEventListener('click', toggleMute);
   root.querySelector('[data-tool="fs"]').addEventListener('click', toggleFs);
+  // Pause (test mode): freezes the camera, holds, animations and the answer timer.
+  function togglePause() {
+    if (clock.paused) { clock.resume(); net.send({ t: 'host:unhold' }); } else { clock.pause(); net.send({ t: 'host:hold' }); }
+    root.classList.toggle('paused', clock.paused);
+    root.querySelector('[data-tool="pause"]').textContent = clock.paused ? 'Play' : 'Pause';
+  }
+  root.querySelector('[data-tool="pause"]').addEventListener('click', togglePause);
+  window.addEventListener('keydown', (e) => { if ((e.key === 'p' || e.key === 'P') && !(e.target.closest && e.target.closest('input,textarea'))) togglePause(); });
   // Restart: everyone keeps their seat, money and hints reset, back to the lobby.
   root.querySelector('[data-tool="restart"]').addEventListener('click', () => {
     if (!confirm('Restart the game? Everyone goes back to the lobby with $100,000.')) return;
@@ -270,7 +282,10 @@ export function mountHost(root, opts = {}) {
     const wrap = document.createElement('div');
     wrap.className = 'board-overlay';
     document.body.appendChild(wrap);
-    const t = mountTour(wrap, S.content, { onClose: () => { t.destroy(); wrap.remove(); } });
+    const t = mountTour(wrap, S.content, {
+      onClose: () => { t.destroy(); wrap.remove(); },
+      onPlay: (step) => { location.href = `${location.pathname}?new&bots=7&from=${step}`; },
+    });
   });
   function toggleMute() { setMuted(!isMuted()); root.querySelector('[data-tool="mute"]').textContent = isMuted() ? 'Sound off' : 'Sound on'; }
   function toggleFs() { if (document.fullscreenElement) document.exitFullscreen(); else root.requestFullscreen?.().catch(() => {}); }
@@ -346,7 +361,7 @@ export function mountHost(root, opts = {}) {
     // The whole demo fits in about 40 seconds. Each beat gets a share of the
     // time left, weighted by how much text it has to read.
     const TOTAL = 40000 / SPEED, MOVE = 1500 / SPEED;
-    const t0 = performance.now();
+    const t0 = clock.now();
     const chars = HOWTO_BEATS.map((b) => b.lines.join(' ').length);
     for (let i = 0; i < beats.length; i++) {
       const b = beats[i];
@@ -355,7 +370,7 @@ export function mountHost(root, opts = {}) {
       b.classList.remove('off');
       b.classList.add('on');
       sfx(i === beats.length - 1 ? 'sting' : 'pop');
-      const left = TOTAL - (performance.now() - t0) - (beats.length - 1 - i) * MOVE;
+      const left = TOTAL - (clock.now() - t0) - (beats.length - 1 - i) * MOVE;
       const share = chars[i] / chars.slice(i).reduce((x, y) => x + y, 0);
       const hold = Math.max(2400 / SPEED, left * share) * SPEED;
       const last = i === beats.length - 1;
@@ -508,10 +523,10 @@ export function mountHost(root, opts = {}) {
     const num = el.querySelector('#pct-num');
     const people = [...el.querySelectorAll('#people i')];
     const total = 2400 / SPEED;
-    const t0 = performance.now();
+    const t0 = clock.now();
     await new Promise((done) => {
-      const step = (now) => {
-        const t = Math.min(1, (now - t0) / total);
+      const step = () => {
+        const t = Math.min(1, (clock.now() - t0) / total);
         const v = Math.round(94 * (1 - (1 - t) ** 3));
         num.textContent = v;
         people.forEach((p, i) => p.classList.toggle('on', i < v));
@@ -553,9 +568,9 @@ export function mountHost(root, opts = {}) {
   }
 
   function countUp(nodes, ms) {
-    const t0 = performance.now();
-    const go = (now) => {
-      const t = Math.min(1, (now - t0) / (ms / SPEED));
+    const t0 = clock.now();
+    const go = () => {
+      const t = Math.min(1, (clock.now() - t0) / (ms / SPEED));
       const e = 1 - (1 - t) ** 3;
       nodes.forEach((n) => (n.textContent = '$' + fmt(Math.round(Number(n.dataset.to) * e))));
       if (t < 1) requestAnimationFrame(go);

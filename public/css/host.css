@@ -323,3 +323,9 @@
 .hv-eq { opacity: 0; transition: opacity .4s var(--d); } .beat.on .hv-eq { opacity: 1; }
 .hv-streak .hv-plus { font-size: 120px; margin-bottom: 52px; }
 .hv-streak { zoom: 1.4; }
+
+/* Paused (test mode) */
+.he-host.paused * { animation-play-state: paused !important; }
+.he-host.paused::after { content: 'Paused · press P or Play'; position: absolute; left: 50%; top: 24px; transform: translateX(-50%); z-index: 30; background: var(--ink); color: #fff; font-weight: 800; font-size: 18px; padding: 10px 22px; border-radius: 999px; }
+.he-host.paused .hud-tools { opacity: 1; }
+.tour-btn.play { background: var(--teal); color: #fff; border-color: var(--teal); font-weight: 800; }
