@@ -1,73 +1,92 @@
 // Background music for the big screen. One track per part of the show:
 //   lobby, howto, round1, round2, round3, bonus, winners
-// Drop MP3s in /music/<slot>.mp3. A missing file just means silence there.
-// Tracks crossfade when the show moves on, and follow Pause and Mute.
+// Files live in /music/<slot>.mp3. They are pre-cut so each loops with no
+// seam (the tail is blended into the head) and levelled to the same loudness.
+// Playback uses Web Audio so loops are gapless; parts crossfade, and the
+// whole mix follows Pause and Mute. A missing file just means silence there.
 
 const SLOTS = ['lobby', 'howto', 'round1', 'round2', 'round3', 'bonus', 'winners'];
-const VOLUME = 0.45;
-const FADE_MS = 1400;
+const VOLUME = 0.55;
+const FADE = 4; // seconds: long, smooth fades in and out
+
+// Equal-power curves so a crossfade never dips or bumps in loudness.
+const curve = (from, to) => Float32Array.from({ length: 64 }, (_, i) => {
+  const t = i / 63;
+  return from + (to - from) * (to > from ? Math.sin((t * Math.PI) / 2) : 1 - Math.cos((t * Math.PI) / 2));
+});
 const base = () => globalThis.HE_MUSIC_BASE ?? (globalThis.HE_IMG ? null : '/music/');
 
-const tracks = {};
-let current = null;
-let muted = false;
-let held = false;
-let wanted = null; // slot asked for before the browser allowed sound
+let ctx = null, out = null;
+const bufs = {};
+let cur = null;      // { slot, src, gain }
+let wanted = null;   // latest slot asked for
+let muted = false, held = false;
 
-function track(slot) {
-  if (!base() || !SLOTS.includes(slot)) return null;
-  if (!tracks[slot]) {
-    const a = new Audio(`${base()}${slot}.mp3`);
-    a.loop = slot !== 'winners';
-    a.preload = 'auto';
-    a.volume = 0;
-    a.addEventListener('error', () => { a.dead = true; });
-    tracks[slot] = a;
+function ensure() {
+  if (ctx || !base()) return !!ctx;
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) return false;
+  ctx = new AC();
+  out = ctx.createGain();
+  out.connect(ctx.destination);
+  return true;
+}
+
+function load(slot) {
+  if (!(slot in bufs)) {
+    bufs[slot] = fetch(`${base()}${slot}.mp3`)
+      .then((r) => (r.ok ? r.arrayBuffer() : null))
+      .then((b) => (b ? new Promise((res, rej) => ctx.decodeAudioData(b, res, rej)) : null))
+      .catch(() => null);
   }
-  return tracks[slot].dead ? null : tracks[slot];
+  return bufs[slot];
 }
 
-function fade(a, to, ms, done) {
-  const from = a.volume, t0 = performance.now();
-  clearInterval(a.fader);
-  a.fader = setInterval(() => {
-    const t = Math.min(1, (performance.now() - t0) / ms);
-    a.volume = Math.max(0, Math.min(1, from + (to - from) * t));
-    if (t >= 1) { clearInterval(a.fader); done && done(); }
-  }, 40);
-}
+export function preloadMusic() { if (ensure()) SLOTS.forEach(load); }
 
-export function playMusic(slot) {
-  if (current && current.slot === slot) return;
-  const prev = current;
-  if (prev) fade(prev.a, 0, FADE_MS, () => prev.a.pause());
-  const a = track(slot);
-  current = a ? { slot, a } : null;
-  if (!a) return;
-  a.currentTime = 0;
-  if (held) return;
-  a.play().then(() => fade(a, muted ? 0 : VOLUME, FADE_MS)).catch(() => { wanted = slot; });
-}
-
-// Call from a click/keypress: browsers only allow sound after one.
-export function unlockMusic() {
-  if (wanted && current && current.slot === wanted && !held) {
-    wanted = null;
-    current.a.play().then(() => fade(current.a, muted ? 0 : VOLUME, FADE_MS)).catch(() => {});
+export async function playMusic(slot) {
+  if (!ensure() || !SLOTS.includes(slot)) return;
+  if (wanted === slot) return;
+  wanted = slot;
+  const now = ctx.currentTime;
+  if (cur) {
+    const old = cur; cur = null;
+    const g = old.gain.gain, v = g.value;
+    g.cancelScheduledValues(now);
+    try { g.setValueCurveAtTime(curve(v, 0), now, FADE); } catch { g.setValueAtTime(v, now); g.linearRampToValueAtTime(0, now + FADE); }
+    try { old.src.stop(now + FADE + 0.05); } catch {}
   }
+  const buf = await load(slot);
+  if (!buf || wanted !== slot) return;
+  const src = ctx.createBufferSource();
+  const gain = ctx.createGain();
+  const t0 = ctx.currentTime;
+  src.buffer = buf;
+  src.loop = slot !== 'winners';
+  if (!src.loop) { // the winners track ends with its own long fade
+    const end = t0 + buf.duration;
+    gain.gain.setValueCurveAtTime(curve(VOLUME, 0), Math.max(t0 + FADE + 0.1, end - FADE), FADE);
+  }
+  gain.gain.setValueCurveAtTime(curve(0, VOLUME), t0, FADE);
+  src.connect(gain).connect(out);
+  src.start(t0);
+  cur = { slot, src, gain };
 }
+
+// Browsers only allow sound after a click or key press.
+export function unlockMusic() { if (ctx && !held && ctx.state === 'suspended') ctx.resume(); }
 
 export function holdMusic(on) {
   held = on;
-  if (!current) return;
-  if (on) current.a.pause();
-  else current.a.play().then(() => fade(current.a, muted ? 0 : VOLUME, 400)).catch(() => {});
+  if (!ctx) return;
+  if (on) ctx.suspend(); else ctx.resume();
 }
 
 export function muteMusic(on) {
   muted = on;
-  if (current) fade(current.a, on ? 0 : VOLUME, 300);
+  if (!out) return;
+  const t = ctx.currentTime;
+  out.gain.cancelScheduledValues(t);
+  out.gain.setValueAtTime(out.gain.value, t);
+  out.gain.linearRampToValueAtTime(on ? 0 : 1, t + 0.3);
 }
-
-// Preload every slot so changes are instant.
-export function preloadMusic() { SLOTS.forEach(track); }
