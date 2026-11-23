@@ -279,9 +279,8 @@ export function mountPlayer(root, opts = {}) {
           <ul class="rules">
             <li>You start with <b>$100,000</b>.</li>
             <li>Bet part of it on every answer. Right, you win your bet. Wrong, you lose it.</li>
-            <li>Three right in a row, with a bet each time: <b>$50,000 extra</b>.</li>
+            <li>Get 3 right in a row, with a bet on each: <b>$50,000 bonus</b>.</li>
             <li><b>2 hints</b> for the whole game. Only you see them.</li>
-            <li>Bonus question at the end: closest guess takes <b>$300,000</b>.</li>
           </ul>
         </section>`;
       case 'bonusIntro': return `

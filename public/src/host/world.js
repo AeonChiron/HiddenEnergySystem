@@ -90,12 +90,10 @@ export const zoneEl = (id, scope = document) => scope.querySelector(`#z-${id}`);
 // "How to play" cutscene: one beat per rule, side by side. The camera visits
 // each beat; its caption rolls in, holds, and rolls off before the next move.
 export const HOWTO_BEATS = [
-  { lines: ['Three rounds: food, energy, repair.', 'Answer on your phone. 20 seconds each.'], vis: 'rounds' },
+  { lines: ['Three rounds: food, energy, repair.', 'Answer on your phone. Most money wins.'], vis: 'rounds' },
   { lines: ['You start with $100,000.', 'Bet 10, 15, 25 or 50% of it on each answer.'], vis: 'bets' },
-  { lines: ['Bet 25% and get it right? $125,000.', 'Get it wrong? $75,000.'], vis: 'winlose' },
-  { lines: ['Three right in a row, betting each time,', 'gets you a $50,000 bonus.'], vis: 'streak' },
+  { lines: ['Get 3 answers right in a row, with a bet on each,', 'and you win a $50,000 bonus.'], vis: 'streak' },
   { lines: ['You get two hints for the whole game.', 'Only you can see them.'], vis: 'hints' },
-  { lines: ['Last up: a bonus question worth $300,000.', 'Most money wins.'], vis: 'bonus' },
 ];
 export const BEAT_W = 1920, BEAT_GAP = 320;
 
@@ -109,7 +107,7 @@ function beatVisual(v) {
     case 'example': return `<div class="hv-ex"><span class="hv-chip pick" style="--k:0">25%</span><span class="hv-arrow" style="--k:1">&rarr;</span><p class="hv-plus" style="--k:2">$25,000</p></div>`;
     case 'winlose': return `<div class="hv-wl"><p class="hv-line" style="--k:0"><s>$100,000</s> &rarr; <b class="up">$125,000</b></p><p class="hv-line" style="--k:1"><s>$100,000</s> &rarr; <b class="down">$75,000</b></p></div>`;
     case 'sure': return `<div class="hv-row">${[['No bet', 0], ['10%', 1], ['15%', 2], ['25%', 3], ['50%', 4]].map(([p, i]) => `<span class="hv-chip s${i}" style="--k:${i}">${p}</span>`).join('')}</div>`;
-    case 'streak': return `<div class="hv-streak"><div class="hv-row">${[0, 1, 2].map((i) => `<span class="hv-check" style="--k:${i}">&#10003;</span>`).join('')}</div><p class="hv-plus" style="--k:3">+$50,000</p></div>`;
+    case 'streak': return `<div class="hv-streak"><div class="hv-row">${[0, 1, 2].map((i) => `<div class="hv-step" style="--k:${i}"><span class="hv-check">&#10003;</span><em>Bet</em></div>`).join('<span class="hv-plus-sign">+</span>')}<span class="hv-eq" style="--k:3">=</span><p class="hv-plus" style="--k:3">$50,000</p></div></div>`;
     case 'hints': return `<div class="hv-hints">${[0, 1].map((i) => `<span class="hv-bulb" style="--k:${i}">?</span>`).join('')}</div>`;
     case 'bonus': return `<div class="hv-bonus"><p class="hv-q">?<small>%</small></p><p class="hv-plus" style="--k:1">$300,000</p></div>`;
     case 'win': return `<div class="hv-win">${art('trophy')}</div>`;
