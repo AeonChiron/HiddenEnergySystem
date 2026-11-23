@@ -265,7 +265,14 @@
 
 /* ---- Seed's pictures (Midjourney). Gentle motion only, so the pictures keep their quality. ---- */
 .pic { position: relative; width: 100%; height: 100%; overflow: hidden; border-radius: 28px; background: #e9e4da; box-shadow: 0 10px 30px rgb(20 40 40 / .12); }
-.pic img { display: block; width: 100%; height: 100%; object-fit: cover; transform-origin: 50% 50%; will-change: transform; }
+.pic img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: var(--op, 50% 50%); transform-origin: var(--o, 50% 50%); transform: scale(var(--z, 1)); will-change: transform; }
+/* Framing per picture in the answer panels (Seed's notes, Nov 23). --z zooms, --o is where it zooms toward. */
+.panel .pic[data-scene="donutShield"] { --z: 1.75; --o: 82% 22%; }
+.panel .pic[data-scene="fatToKetones"] { --z: .98; --op: 50% 0%; --o: 50% 30%; }
+.panel .pic[data-scene="butterScale"] { --z: .98; --o: 46% 52%; }
+.panel .pic[data-scene="fatReserves"] { --z: 1.3; --o: 50% 58%; }
+.panel .pic[data-scene="proteinFlood"] { --z: .98; --o: 50% 55%; }
+.panel .pic[data-scene="nutrientShortage"] { --z: .98; --o: 46% 50%; }
 .reveal-art .pic, .round-art .pic, .lobby-art .pic { aspect-ratio: 1; width: auto; height: 100%; max-width: 100%; margin: 0 auto; }
 .round-art .pic { height: auto; width: 100%; }
 .z-round1 .round-art .pic { aspect-ratio: 16 / 9; height: auto; width: 100%; position: relative; top: 50%; transform: translateY(-50%); }
@@ -276,11 +283,11 @@
 :is(.live, .play) .pic-left img { animation: pic-left 16s ease-in-out infinite alternate; }
 :is(.live, .play) .pic-right img { animation: pic-right 16s ease-in-out infinite alternate; }
 :is(.live, .play) .pic-up img { animation: pic-up 15s ease-in-out infinite alternate; }
-@keyframes pic-in { from { transform: scale(1.02); } to { transform: scale(1.1); } }
-@keyframes pic-out { from { transform: scale(1.1); } to { transform: scale(1.02); } }
-@keyframes pic-left { from { transform: scale(1.08) translateX(2%); } to { transform: scale(1.08) translateX(-2%); } }
-@keyframes pic-right { from { transform: scale(1.08) translateX(-2%); } to { transform: scale(1.08) translateX(2%); } }
-@keyframes pic-up { from { transform: scale(1.08) translateY(2%); } to { transform: scale(1.08) translateY(-2%); } }
+@keyframes pic-in { from { transform: scale(calc(var(--z, 1) * 1.02)); } to { transform: scale(calc(var(--z, 1) * 1.1)); } }
+@keyframes pic-out { from { transform: scale(calc(var(--z, 1) * 1.1)); } to { transform: scale(calc(var(--z, 1) * 1.02)); } }
+@keyframes pic-left { from { transform: scale(calc(var(--z, 1) * 1.08)) translateX(2%); } to { transform: scale(calc(var(--z, 1) * 1.08)) translateX(-2%); } }
+@keyframes pic-right { from { transform: scale(calc(var(--z, 1) * 1.08)) translateX(-2%); } to { transform: scale(calc(var(--z, 1) * 1.08)) translateX(2%); } }
+@keyframes pic-up { from { transform: scale(calc(var(--z, 1) * 1.08)) translateY(2%); } to { transform: scale(calc(var(--z, 1) * 1.08)) translateY(-2%); } }
 /* faint ripple on the big pictures (intros and reveals) */
 :is(.live, .play) .pic-big img { filter: url(#he-ripple); }
 @media (prefers-reduced-motion: reduce) { .pic img { animation: none !important; filter: none !important; } }

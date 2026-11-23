@@ -66,7 +66,7 @@ while (Date.now() < deadline) {
     await host.screenshot({ path: `${OUT}/${String(shot).padStart(2, '0')}-host-${label.replace(/\W+/g, '_')}.png` });
     await phones[0].p.screenshot({ path: `${OUT}/${String(shot).padStart(2, '0')}-phone.png` });
     shot++;
-    if (label === 'Play again') break;
+    if (label === 'Back to the start') break;
     await host.keyboard.press('Space');
   }
   await host.waitForTimeout(250);

@@ -421,7 +421,7 @@ export class Hub {
           a.delta = a.bet + a.streakBonus;
         } else {
           p.streak = 0;
-          a.delta = -a.bet;
+          a.delta = -Math.min(a.bet, Math.max(0, p.score)); // never below $0
         }
         p.score += a.delta;
         if (a.delta > 0) wonTotal += a.delta;
@@ -469,6 +469,10 @@ export class Hub {
     return [...room.players.values()]
       .map((p) => ({
         id: p.id, name: p.name, color: p.color, score: p.score, bot: p.bot,
+        right: QUESTIONS.filter((q) => q.kind !== 'number' && p.answers[q.n]?.correct).length,
+        streaks: Object.values(p.answers).filter((a) => a.streakBonus > 0).length,
+        hints: STARTING_HINTS - p.hintsLeft,
+        bonusWon: !!(p.answers[13] && p.answers[13].won),
         bonus: bonus && p.answers[13] ? p.answers[13].value : null,
         distance: bonus && p.answers[13] ? p.answers[13].distance : Infinity,
         order: p.order,

@@ -49,7 +49,7 @@ export const QUESTIONS = [
     prompt: FOOD_PROMPT,
     options: BINARY,
     answer: 'HIGH',
-    hint: 'Consider the toppings as well as the fruit.',
+    hint: 'Banana, granola and honey are all sugar or starch.',
     reveal: {
       headline: 'High carb',
       text: 'Banana, granola and honey are all carbs. A bowl can look healthy and still be full of sugar and starch.',
@@ -63,7 +63,7 @@ export const QUESTIONS = [
     prompt: FOOD_PROMPT,
     options: BINARY,
     answer: 'LOW',
-    hint: "What's missing from a traditional burger?",
+    hint: "There's no bun. Meat, cheese and bacon have almost no carbs.",
     reveal: {
       headline: 'Low carb',
       text: 'The lettuce takes the place of the bun. Beef, bacon, cheese and mayo have almost no carbs.',
@@ -77,7 +77,7 @@ export const QUESTIONS = [
     prompt: FOOD_PROMPT,
     options: BINARY,
     answer: 'HIGH',
-    hint: 'Consider the grains, legumes and root vegetables.',
+    hint: 'Quinoa, chickpeas and sweet potato are all starchy.',
     reveal: {
       headline: 'High carb',
       text: 'Quinoa, chickpeas and sweet potato are all full of starch. Only the avocado is low carb.',
@@ -91,7 +91,7 @@ export const QUESTIONS = [
     prompt: FOOD_PROMPT,
     options: BINARY,
     answer: 'LOW',
-    hint: 'Pay attention to what the noodles are made of.',
+    hint: 'Those noodles are zucchini, not pasta.',
     reveal: {
       headline: 'Low carb',
       text: 'Normal pasta is mostly starch. These noodles are zucchini, which is mostly water, so the same dish has far fewer carbs.',
@@ -110,7 +110,7 @@ export const QUESTIONS = [
       { letter: 'D', text: 'All of the above.', all: true },
     ],
     answer: 'A',
-    hint: "Think about why blood sugar doesn't remain elevated after every meal.",
+    hint: "Insulin's job is to get sugar out of your blood and into your cells to use for energy.",
     reveal: {
       scene: 'revealInsulin',
       text: 'Insulin is the signal that food has arrived. It helps your cells take in sugar (glucose) and turn it into energy, now or later.',
@@ -126,7 +126,7 @@ export const QUESTIONS = [
       { letter: 'D', text: 'All of the above.', all: true },
     ],
     answer: 'B',
-    hint: 'Resistance means the same signal produces a weaker response.',
+    hint: 'Resistant means insulin works less well, so keeping blood sugar steady gets harder.',
     reveal: {
       scene: 'revealResistance',
       text: 'Your cells stop listening to insulin, so your body has to make more and more of it. If it can\'t keep up, blood sugar rises and type 2 diabetes can follow.',
@@ -142,7 +142,7 @@ export const QUESTIONS = [
       { letter: 'D', text: 'All of the above.', all: true },
     ],
     answer: 'A',
-    hint: 'Think about what happens when carbohydrate availability decreases.',
+    hint: 'Ketones are made from fat. Only one answer is true.',
     reveal: {
       scene: 'revealKetosis',
       text: 'When carbs run low, your liver turns fat into ketones. Ketones are a backup fuel, and your brain can run on them.',
@@ -158,7 +158,7 @@ export const QUESTIONS = [
       { letter: 'D', text: 'All of the above.', all: true },
     ],
     answer: 'D',
-    hint: 'Think beyond weight loss.',
+    hint: 'More than one answer can be right.',
     reveal: {
       scene: 'revealAllKetosis',
       text: "You don't only run on your last meal. Your body can also run on the energy it has already stored.",
@@ -176,7 +176,7 @@ export const QUESTIONS = [
       { letter: 'D', text: 'All of the above.', all: true },
     ],
     answer: 'B',
-    hint: 'Think about what happens to old or damaged cellular material.',
+    hint: 'Think recycling: old, broken parts get taken apart and reused.',
     reveal: {
       scene: 'revealAutophagy',
       text: 'Your cells recycle. They break down old, broken parts and reuse the pieces to build new ones.',
@@ -192,7 +192,7 @@ export const QUESTIONS = [
       { letter: 'D', text: 'All of the above.', all: true },
     ],
     answer: 'D',
-    hint: 'Cellular maintenance matters in many different organs.',
+    hint: 'More than one answer can be right.',
     reveal: {
       scene: 'revealDiseases',
       text: 'Three very different diseases have one thing in common: the cell\'s recycling stops working well.',
@@ -208,7 +208,7 @@ export const QUESTIONS = [
       { letter: 'D', text: 'All of the above.', all: true },
     ],
     answer: 'B',
-    hint: 'What changes inside cells when incoming resources become limited?',
+    hint: 'Cells recycle more when food stops coming in.',
     reveal: {
       scene: 'revealScarcity',
       text: 'When less food comes in, cells recycle more. They make the most of what they already have.',
@@ -224,7 +224,7 @@ export const QUESTIONS = [
       { letter: 'D', text: 'All of the above.', all: true },
     ],
     answer: 'A',
-    hint: 'Think about the relationship between cellular maintenance and aging.',
+    hint: 'Better cell cleanup kept the mice younger for longer.',
     reveal: {
       scene: 'revealLifespan',
       text: 'The mice lived longer. Could better cell maintenance help people age better too? Scientists are still finding out.',
@@ -260,10 +260,16 @@ export const BET_PCTS = [0, 10, 15, 25, 50];
 export const STREAK_LEN = 3;
 export const STREAK_BONUS = 50_000;
 export const BONUS_PRIZE = 300_000; // closest guess on the bonus question; a perfect tie pays everyone tied
+// A player who is broke (or nearly) still gets one bet to play for: the
+// comeback bet. Right adds $10,000 and counts toward the $50,000 streak;
+// wrong costs only what they have left, so nobody goes below $0.
+export const COMEBACK_BET = 10000;
 export function betChoices(balance) {
   const seen = new Set();
-  return BET_PCTS.map((pct) => ({ pct, amount: Math.floor((Math.max(0, balance) * pct) / 100 / 1000) * 1000 }))
+  const list = BET_PCTS.map((pct) => ({ pct, amount: Math.floor((Math.max(0, balance) * pct) / 100 / 1000) * 1000 }))
     .filter((c) => (seen.has(c.amount) ? false : seen.add(c.amount)));
+  if (list.length === 1) list.push({ pct: 0, amount: COMEBACK_BET, comeback: true });
+  return list;
 }
 export function betOptions(balance) { return betChoices(balance).map((c) => c.amount); }
 

@@ -140,24 +140,28 @@ function echoOut(ctx, dest, v, at, beat) {
   if (typeof setTimeout === 'function' && !(ctx instanceof OfflineAudioContext)) setTimeout(() => { try { send.disconnect(); dl.disconnect(); fb.disconnect(); tone.disconnect(); } catch {} }, (at - ctx.currentTime + 12) * 1000);
 }
 
+// Resolves with the seconds until the new track's first downbeat lands, so
+// the picture can hit that moment (0 when there is no music).
 export async function playMusic(slot) {
-  if (!ensure() || !SLOTS.includes(slot)) return;
-  if (wanted === slot) return;
+  if (!ensure() || !SLOTS.includes(slot)) return 0;
+  if (wanted === slot) return 0;
   wanted = slot;
   const [buf, g] = await Promise.all([load(slot), loadGrid()]);
-  if (wanted !== slot) return;
+  if (wanted !== slot) return 0;
   const old = cur;
   cur = null;
   const now = ctx.currentTime;
   const gin = g[slot], gout = old && g[old.slot];
   const loop = slot !== 'winners';
-  if (!buf) { if (old) fadeOutVoice(ctx, old); return; }
+  if (!buf) { if (old) fadeOutVoice(ctx, old); return 0; }
   if (!old || !gout || !gin || !gin.beats.length || ctx.state !== 'running') {
     if (old) fadeOutVoice(ctx, old);
-    cur = { slot, startAt: now + MIX.inDelay, ...startVoice(ctx, duck, buf, { loop, at: now + MIX.inDelay }) };
-    return;
+    const at = now + MIX.inDelay;
+    cur = { slot, startAt: at, ...startVoice(ctx, duck, buf, { loop, at }) };
+    return ctx.state === 'running' ? Math.max(0, at + (gin?.beats?.[0] || 0) - ctx.currentTime) : 0;
   }
   cur = crossTo(ctx, duck, old, slot, buf, gin, gout, now, loop);
+  return Math.max(0, cur.T - ctx.currentTime);
 }
 
 // Beat-matched change from voice `old` (playing track gout) to `buf` (track gin).
@@ -184,6 +188,18 @@ export function crossTo(ctx, dest, old, slot, buf, gin, gout, now = ctx.currentT
   try { old.src.stop(T + CUT + 0.05); } catch {}
   echoOut(ctx, dest, old, T, beat);
   swell(ctx, dest, T, Math.max(0.6, T - now - 0.05));
+  if (!loop) {
+    // A one-shot finish (the winners' fanfare) hits at full strength on the beat.
+    const at = T - gin.beats[0];
+    const v = startVoice(ctx, dest, buf, { loop, at, fade: 0.1, offset: 0 });
+    v.gain.gain.cancelScheduledValues(at);
+    v.gain.gain.setValueAtTime(0, at);
+    v.gain.gain.linearRampToValueAtTime(VOLUME, at + 0.02);
+    v.gain.gain.setValueAtTime(VOLUME, Math.max(at + 0.03, at + buf.duration - MIX.FADE));
+    v.gain.gain.linearRampToValueAtTime(0, at + buf.duration);
+    v.hp.frequency.cancelScheduledValues(at); v.hp.frequency.setValueAtTime(20, at);
+    return { slot, startAt: at, T, ...v };
+  }
   const v = startVoice(ctx, dest, buf, { loop, at: start, fade: 0.1, offset });
   const ng = v.gain.gain, hp = v.hp.frequency;
   ng.cancelScheduledValues(start); hp.cancelScheduledValues(start);

@@ -267,6 +267,7 @@ function podiumHTML() {
   return `
     <div class="podium">
       <h2 class="podium-title">The winners</h2>
+      <div class="spot" aria-live="polite"></div>
       <div class="steps">
         <div class="step s2"><div class="who"></div><div class="block"><b>2</b></div></div>
         <div class="step s1"><div class="trophy">${art('trophy')}</div><div class="who"></div><div class="block"><b>1</b></div></div>

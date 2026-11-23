@@ -336,3 +336,22 @@
 .z-howto .hv-rounds figure:first-child .pic img { object-fit: cover; background: none; }
 .sound-tip { position: absolute; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: 30; background: var(--ink); color: #fff; font-weight: 700; font-size: 18px; padding: 10px 22px; border-radius: 999px; animation: sound-tip 2.4s ease-in-out infinite; pointer-events: none; }
 @keyframes sound-tip { 50% { opacity: .65; } }
+
+/* podium spotlight: one player's game, line by line */
+.podium { position: relative; }
+.spot { position: absolute; left: 50%; top: 160px; z-index: 5; width: 1120px; padding: 34px 64px 30px; background: #fff; border-radius: 40px; box-shadow: 0 30px 80px rgba(19, 40, 43, .22); text-align: center;
+  opacity: 0; transform: translate(-50%, 30px) scale(.96); transition: opacity .6s, transform .8s cubic-bezier(.2, 1.2, .35, 1); pointer-events: none; }
+.spot.on { opacity: 1; transform: translate(-50%, 0); }
+.spot-place { margin: 0; font-size: 34px; font-weight: 800; color: var(--orange); letter-spacing: .02em; text-transform: uppercase; }
+.spot-name { margin: 4px 0 16px; font-size: 80px; line-height: 1; font-weight: 800; letter-spacing: -.03em; display: flex; justify-content: center; align-items: center; gap: 22px; }
+.spot-name i { width: 64px; height: 64px; border-radius: 50%; background: var(--c); flex: none; }
+.spot-name span { color: var(--ink-2); opacity: .5; }
+.spot.named .spot-name { animation: spot-hit .9s cubic-bezier(.2, 1.6, .4, 1); }
+@keyframes spot-hit { from { transform: scale(.6); opacity: 0; } to { transform: none; opacity: 1; } }
+.spot-lines { list-style: none; margin: 0 0 18px; padding: 0; display: grid; gap: 10px; }
+.spot-lines li { font-size: 36px; color: var(--ink-2); opacity: 0; transform: translateY(14px); transition: opacity .5s, transform .5s; }
+.spot-lines li.in { opacity: 1; transform: none; }
+.spot-lines b { color: var(--teal); }
+.spot-money { margin: 0; font-size: 72px; font-weight: 800; color: var(--teal); opacity: 0; transition: opacity .4s; font-variant-numeric: tabular-nums; }
+.spot-money.in { opacity: 1; }
+.play-gate { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 40; font-size: 40px; padding: 26px 60px; cursor: pointer; }

@@ -21,9 +21,8 @@ export function mountHost(root, opts = {}) {
   const SPEED = Number(params.get('speed')) || opts.speed || 1;
   const wait = (ms) => clock.sleep(ms / SPEED);
   // How long each answer's cutscene holds on screen (Seed: about 12 seconds).
-  // Each answer close-up holds 1.5 to 2.5 seconds, longer for longer answers.
+  // Answer close-ups (Seed, Nov 23): A holds 10 s, B and C 8 s. ?cut= overrides for tests.
   const CUT_FIXED = Number(params.get('cut')) || opts.cutMs || 0;
-  const cutMs = (text) => CUT_FIXED || Math.min(2500, Math.max(1500, 1500 + (text.length - 30) * 30));
 
   root.classList.add('he-host');
   root.innerHTML = `
@@ -319,9 +318,35 @@ export function mountHost(root, opts = {}) {
   }
 
   // ---------- the show ----------
+  // Which song belongs at a given step, so "Play from here" or a resumed
+  // show starts with the music that would be playing at that point.
+  function songAt(steps, i) {
+    for (let k = i; k >= 0; k--) {
+      const s = steps[k];
+      if (s.type === 'roundIntro') return `round${s.round}`;
+      if (s.type === 'bonusIntro' || s.type === 'podium') return 'bonus';
+      if (s.type === 'lobby' || s.type === 'howto') return 'lobby';
+    }
+    return 'lobby';
+  }
+
   async function startShow(from) {
     S.running = true;
     const steps = S.content.steps;
+    if (from > 0) {
+      // Browsers only play sound after a click, and "Play from here" reloads
+      // the page, so ask for one click before the show resumes.
+      const gate = document.createElement('button');
+      gate.className = 'start-btn play-gate';
+      gate.textContent = '▶ Play from here';
+      root.appendChild(gate);
+      await new Promise((res) => {
+        const go = () => { unlockAudio(); unlockMusic(); waiters.start = null; gate.remove(); res(); };
+        waiters.start = go;
+        gate.addEventListener('click', go);
+      });
+      playMusic(songAt(steps, from));
+    }
     for (let i = from; i < steps.length; i++) {
       S.step = i;
       const s = steps[i];
@@ -348,10 +373,13 @@ export function mountHost(root, opts = {}) {
     const el = live('lobby');
     // Opening sequence: start close on the title, pull back to the lobby.
     const title = el.querySelector('.lobby-title');
-    cam.set({ ...frameOf('lobby', 0), z: frameOf('lobby', 0).z * 1.9, y: Z('lobby').y + title.offsetTop + title.offsetHeight / 2 });
-    el.classList.add('intro');
-    await wait(900);
-    await cam.ease(frameOf('lobby', 0), 2200);
+    if (S.returning) { S.returning = false; cam.set(frameOf('lobby', 0)); el.classList.add('intro'); }
+    else {
+      cam.set({ ...frameOf('lobby', 0), z: frameOf('lobby', 0).z * 1.9, y: Z('lobby').y + title.offsetTop + title.offsetHeight / 2 });
+      el.classList.add('intro');
+      await wait(900);
+      await cam.ease(frameOf('lobby', 0), 2200);
+    }
     const startBtn = document.createElement('button');
     startBtn.className = 'start-btn';
     startBtn.innerHTML = 'Start the game';
@@ -405,7 +433,7 @@ export function mountHost(root, opts = {}) {
     live(`round${r}`);
     await cam.fly(frameOf(`round${r}`, 0));
     sfx('sting');
-    await wait(2500);
+    await wait(7000);
   }
 
   async function question(step, n, resumed) {
@@ -452,7 +480,7 @@ export function mountHost(root, opts = {}) {
     await cam.fly(frameOf(`q${q.n}title`, 0.1));
     el.classList.add('show-title');
     sfx('pop');
-    await wait(2500);
+    await wait(5000);
     // Scenes 2-5: one mini cutscene per answer, always whooshing right.
     for (const { letter: L, text } of q.options.filter((o) => !o.all)) {
       stage(step, { name: 'watch', n: q.n, round: q.round, letter: L });
@@ -461,7 +489,7 @@ export function mountHost(root, opts = {}) {
       const move = L === 'A' ? cam.ease(frameOf(`q${q.n}${L}`, 0.07), 900) : cam.whoosh(frameOf(`q${q.n}${L}`, 0.07), 620);
       setTimeout(() => panel.classList.add('in', 'play'), 180 / SPEED);
       await move;
-      await wait(cutMs(text));
+      await wait(CUT_FIXED || (L === 'A' ? 10000 : 8000));
       panel.classList.remove('play');
     }
     // Scene 6: pull back to reveal everything, E underneath.
@@ -506,7 +534,7 @@ export function mountHost(root, opts = {}) {
     await wait(1400);
     el.classList.add('named');
     sfx('pop');
-    await wait(1600); // the rings land, then voting opens right away
+    await wait(3100); // all three rings land first, then the High/Low choice comes in
     el.classList.add('overview');
     await cam.ease(frameOf(`q${q.n}`, 0.04), 1200);
     el.classList.add('all-in');
@@ -564,7 +592,7 @@ export function mountHost(root, opts = {}) {
     live(`disc${r}`);
     await cam.fly(frameOf(`disc${r}`, 0));
     sfx('sting');
-    await wait(2500);
+    await wait(3500);
   }
 
   async function leaderboard(step, r) {
@@ -606,44 +634,88 @@ export function mountHost(root, opts = {}) {
   }
 
   async function podium(step) {
+    // Slow, built-up finish. Third and second each get a short spotlight of
+    // what they did, then rise. First place: the stats come first, the name
+    // lands exactly on the winners' fanfare.
     stage(step, { name: 'podium' });
-    playMusic('winners');
     hud();
     const list = await getStandings('final');
     const el = live('podium');
     await cam.fly(frameOf('podium', 0));
+    const spot = el.querySelector('.spot');
     const fill = (cls, p) => {
       const who = el.querySelector(`.${cls} .who`);
       who.innerHTML = p ? `<i style="--c:${p.color}"></i><span>${esc(p.name)}</span><em>$${fmt(p.score)}</em>` : '';
     };
     fill('s3', list[2]); fill('s2', list[1]); fill('s1', list[0]);
-    await wait(600);
-    for (const cls of ['s3', 's2']) {
-      sfx('drumroll', 1.1);
+    const lines = (p) => [
+      `<b>${p.right}</b> of 12 answers right`,
+      p.streaks ? `<b>${p.streaks}</b> streak bonus${p.streaks > 1 ? 'es' : ''} · +$${fmt(p.streaks * 50000)}` : 'No streak bonus this time',
+      p.bonusWon ? 'Closest on the bonus question · <b>+$300,000</b>' : p.hints ? `${p.hints} hint${p.hints > 1 ? 's' : ''} used` : 'No hints used',
+    ];
+    async function spotlight(p, place, nameFirst) {
+      spot.innerHTML = `<p class="spot-place">${place}</p>
+        <p class="spot-name">${nameFirst ? `<i style="--c:${p.color}"></i>${esc(p.name)}` : '<span>Who is it?</span>'}</p>
+        <ul class="spot-lines">${lines(p).map((l) => `<li>${l}</li>`).join('')}</ul>
+        <p class="spot-money">$<span>0</span></p>`;
+      spot.className = 'spot on';
+      sfx('drumroll', 1.2);
+      await wait(1500);
+      for (const li of spot.querySelectorAll('li')) { li.classList.add('in'); sfx('pop'); await wait(1300); }
+      spot.querySelector('.spot-money').classList.add('in');
+      await countUp(spot.querySelector('.spot-money span'), p.score, 1600);
+      await wait(900);
+    }
+    const ranks = [[list[2], 's3', 'Third place'], [list[1], 's2', 'Second place']];
+    for (const [p, cls, place] of ranks) {
+      if (!p) continue;
+      await spotlight(p, place, true);
       await wait(1200);
+      spot.className = 'spot';
+      await wait(500);
       el.querySelector(`.${cls}`).classList.add('up');
       sfx('pop');
-      await wait(1200);
+      await wait(1800);
     }
-    sfx('drumroll', 1.8);
-    await wait(1900);
-    el.querySelector('.s1').classList.add('up');
-    sfx('fanfare');
-    confetti($('#confetti', root), { duration: 5000 / SPEED });
-    await waitNext('See the whole journey', 10000);
+    if (list[0]) {
+      await spotlight(list[0], 'And the winner is', false);
+      // The fanfare's first hit is the reveal: wait for the beat it lands on.
+      const toBeat = await playMusic('winners');
+      if (toBeat > 0.05) await wait(toBeat * 1000 * SPEED - 30);
+      spot.querySelector('.spot-name').innerHTML = `<i style="--c:${list[0].color}"></i>${esc(list[0].name)}`;
+      spot.classList.add('named');
+      confetti($('#confetti', root), { duration: 6000 / SPEED });
+      await wait(3500);
+      spot.className = 'spot';
+      await wait(500);
+      el.querySelector('.s1').classList.add('up');
+    } else playMusic('winners');
+    await waitNext('Back to the start', 14000);
+  }
+
+  async function countUp(node, to, ms) {
+    const t0 = clock.now(), total = ms / SPEED;
+    await new Promise((done) => {
+      const tick = () => {
+        const t = Math.min(1, (clock.now() - t0) / total);
+        node.textContent = fmt(Math.round(to * (1 - (1 - t) ** 3)));
+        if (t < 1) requestAnimationFrame(tick); else done();
+      };
+      requestAnimationFrame(tick);
+    });
   }
 
   async function finale(step) {
+    // Back to the home screen, ready for another game.
     stage(step, { name: 'finale' });
-    playMusic('lobby'); // the journey zoom-out drifts back to the opening theme
-    root.querySelectorAll('.zone').forEach((z) => z.classList.add('settled'));
-    await cam.fly(frameOf('all', 0.02), 4200);
-    await waitNext('Play again');
+    playMusic('lobby');
     net.send({ t: 'host:restart' });
     S.started = false;
-    S.running = false;
     S.results = {};
-    root.querySelectorAll('.zone').forEach((z) => z.className = z.className.split(' ').filter((c) => c === 'zone' || c.startsWith('z-')).join(' '));
+    root.querySelectorAll('.zone').forEach((z) => { z.className = z.className.split(' ').filter((c) => c === 'zone' || c.startsWith('z-')).join(' '); });
+    S.returning = true;
+    await cam.fly(frameOf('lobby', 0), 3200);
+    setTimeout(() => startShow(0), 0);
   }
 
   return { state: S, cam, net };

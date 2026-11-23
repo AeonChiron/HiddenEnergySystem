@@ -343,8 +343,8 @@ export function mountPlayer(root, opts = {}) {
         ${state.hint ? `<p class="hinttext">${ICON.bulb}<span>${esc(state.hint)}</span></p>` : ''}
         ${choices}
         ${q.kind !== 'number' && o.bets?.length ? `<div class="bets" role="radiogroup" aria-label="Your bet">
-          <p class="bets-head">Your bet <span>You have ${money(state.me.score)}</span></p>
-          <div class="bet-row">${o.bets.map(({ pct, amount: v }) => `<button class="bet ${state.bet === v ? 'sel' : ''}" data-bet="${v}" role="radio" aria-checked="${state.bet === v}">${pct === 0 ? 'No bet' : `<b>${pct}%</b> <small>${short(v)}</small>`}</button>`).join('')}</div>
+          <p class="bets-head">Your bet <span>You have ${money(state.me.score)}</span></p>${o.bets.some((c) => c.comeback) ? `<p class="fine comeback-note">Low on money? Take the comeback bet. Right adds $10,000, wrong can't take you below $0, and three right in a row still wins $50,000.</p>` : ""}
+          <div class="bet-row">${o.bets.map(({ pct, amount: v, comeback }) => `<button class="bet ${state.bet === v ? 'sel' : ''}${comeback ? ' comeback' : ''}" data-bet="${v}" role="radio" aria-checked="${state.bet === v}">${comeback ? `<b>Comeback</b> <small>${short(v)}</small>` : pct === 0 ? 'No bet' : `<b>${pct}%</b> <small>${short(v)}</small>`}</button>`).join('')}</div>
         </div>` : ''}
         <div class="actions">
           ${hintBtn}

@@ -276,3 +276,10 @@ test('pause holds the answer timer and resumes with the time that was left', () 
   clock.advance(2_000);
   assert.equal(host.all('results').length, 1);
 });
+
+test('a broke player gets a comeback bet that never takes them below $0', async () => {
+  const { betChoices, COMEBACK_BET } = await import('../shared/content.js');
+  assert.deepEqual(betChoices(0).map((c) => c.amount), [0, COMEBACK_BET]);
+  assert.ok(betChoices(0)[1].comeback);
+  assert.ok(!betChoices(100000).some((c) => c.comeback));
+});
