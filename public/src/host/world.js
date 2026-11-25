@@ -90,7 +90,7 @@ export const zoneEl = (id, scope = document) => scope.querySelector(`#z-${id}`);
 // "How to play" cutscene: one beat per rule, side by side. The camera visits
 // each beat; its caption rolls in, holds, and rolls off before the next move.
 export const HOWTO_BEATS = [
-  { lines: ['Three rounds: food, energy, repair.', 'Answer on your phone. Most money wins.'], vis: 'rounds' },
+  { lines: ['Three rounds of questions.', 'Answer on your phone. Most money wins.'], vis: 'none' },
   { lines: ['You start with $100,000.', 'Bet 10, 15, 25 or 50% of it on each answer.'], vis: 'bets' },
   { lines: ['Get 3 answers right in a row, with a bet on each,', 'and you win a $50,000 bonus.'], vis: 'streak' },
   { lines: ['You get two hints for the whole game.', 'Only you can see them.'], vis: 'hints' },
@@ -98,6 +98,7 @@ export const HOWTO_BEATS = [
 export const BEAT_W = 1920, BEAT_GAP = 320;
 
 function beatVisual(v) {
+  if (v === 'none') return ''; // Seed: the first rule is words only, no pictures
   const pill = (t, cls = '') => `<span class="hv-pill ${cls}">${t}</span>`;
   switch (v) {
     case 'rounds': return `<div class="hv-rounds">${[1, 2, 3].map((n, i) => `<figure style="--k:${i}"><div class="hv-pic">${art(`round${n}`)}</div><figcaption>${['Food', 'Energy', 'Repair'][i]}</figcaption></figure>`).join('')}</div>`;

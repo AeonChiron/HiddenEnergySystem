@@ -488,7 +488,7 @@ export function mountPlayer(root, opts = {}) {
 
   // The same four rules as the big screen's how-to, in the same order.
   const RULES = [
-    'Three rounds: <b>food, energy, repair</b>. Answer on your phone. Most money wins.',
+    '<b>Three rounds</b> of questions. Answer on your phone. Most money wins.',
     'You start with <b>$100,000</b>. Bet 10, 15, 25 or 50% of it on each answer.',
     'Get 3 right in a row, with a bet on each: <b>$50,000 bonus</b>.',
     '<b>2 hints</b> for the whole game. Only you see them.',
