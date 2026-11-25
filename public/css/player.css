@@ -163,3 +163,27 @@ main [tabindex="-1"]:focus { outline: none; }
 .bet b { font-size: 21px; }
 .bet[data-bet="0"] { font-size: 14px; line-height: 1.1; color: var(--ink-2); }
 .join-brand .he-logo { width: 64px; height: 64px; flex: none; }
+
+/* ---------- online mode (no projector) ---------- */
+.he-hidden-show { display: none; }
+.stage-pic { margin: 0 0 6px; width: 100%; max-width: 420px; aspect-ratio: 1; border-radius: 22px; overflow: hidden; background: var(--ivory); box-shadow: 0 14px 30px -18px rgba(19, 40, 43, .45); }
+.stage-pic img { width: 100%; height: 100%; object-fit: cover; display: block; animation: pic-drift 14s ease-in-out infinite alternate; }
+.stage-pic.food { aspect-ratio: auto; background: none; box-shadow: none; max-width: 340px; }
+.stage-pic.food img { object-fit: contain; height: auto; }
+.stage-pic.small { max-width: 220px; border-radius: 18px; }
+@keyframes pic-drift { from { transform: scale(1); } to { transform: scale(1.05); } }
+.online-watch { gap: 10px; }
+.online-watch .opt { display: flex; gap: 12px; align-items: flex-start; text-align: left; font-size: 20px; font-weight: 750; line-height: 1.25; margin: 4px 0 0; max-width: 420px; }
+.online-watch .opt .ltr { flex: none; display: inline-grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; font-size: 21px; }
+.online-watch .q-big { font-size: 28px; line-height: 1.15; }
+.online-lobby .code-big { font-size: 64px; font-weight: 800; letter-spacing: .08em; line-height: 1; margin: 0; font-variant-numeric: tabular-nums; }
+.online-lobby .roster { list-style: none; padding: 0; margin: 10px 0 0; display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; max-width: 420px; }
+.online-lobby .roster li { background: var(--ivory); border-radius: 999px; padding: 6px 14px; font-weight: 700; font-size: 15px; }
+.online-lobby .start { width: 100%; max-width: 360px; margin-top: 8px; font-size: 19px; padding: 16px; }
+@media (min-width: 700px) {
+  .he-player { max-width: 600px; }
+  .stage-pic { max-width: 480px; }
+  .online-watch .opt { font-size: 24px; max-width: 480px; }
+  .online-watch .q-big { font-size: 34px; }
+}
+@media (prefers-reduced-motion: reduce) { .stage-pic img { animation: none; } }

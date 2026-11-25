@@ -25,7 +25,7 @@ const MIME = {
 };
 
 // Short, friendly routes.
-const ROUTES = { '/': '/index.html', '/host': '/host.html', '/play': '/play.html', '/join': '/play.html' };
+const ROUTES = { '/': '/index.html', '/host': '/host.html', '/play': '/play.html', '/join': '/play.html', '/online': '/play.html', '/classroom': '/host.html' };
 
 function lanAddresses() {
   const out = [];
@@ -49,6 +49,13 @@ const server = http.createServer((req, res) => {
     return send(res, 200, JSON.stringify({ publicUrl: process.env.PUBLIC_URL || null, lan: lanAddresses(), port: PORT }), MIME['.json'], { 'Cache-Control': 'no-store' });
   }
   if (/^\/join\/\d{4,5}$/.test(p)) p = '/play.html'; // /join/4821 -> player page, code read client-side
+  // Dev mode: big screen and phone side by side with practice bots (the built preview).
+  if (p === '/dev' || p === '/dev/') {
+    return fs.readFile(path.join(PUBLIC, '..', 'docs', 'index.html'), (err, buf) => {
+      if (err) return send(res, 404, 'Not found');
+      send(res, 200, buf, MIME['.html'], { 'Cache-Control': 'no-cache' });
+    });
+  }
   p = ROUTES[p] || p;
 
   const file = path.normalize(path.join(PUBLIC, p));

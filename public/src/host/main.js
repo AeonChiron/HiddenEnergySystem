@@ -24,6 +24,9 @@ export function mountHost(root, opts = {}) {
   // Answer close-ups (Seed, Nov 23): A holds 10 s, B and C 8 s. ?cut= overrides for tests.
   const CUT_FIXED = Number(params.get('cut')) || opts.cutMs || 0;
 
+  // classroom: this screen is the projector. online: it runs unseen inside the creator's phone.
+  const MODE = opts.mode || (params.get('mode') === 'online' ? 'online' : 'classroom');
+
   root.classList.add('he-host');
   root.innerHTML = `
     <div class="viewport" id="viewport"><div class="world" id="world"></div></div>
@@ -63,8 +66,8 @@ export function mountHost(root, opts = {}) {
     onOpen() {
       const saved = ss.get();
       if (S.code && S.key) net.send({ t: 'host:resume', code: S.code, key: S.key });
-      else if (saved && !params.has('new')) net.send({ t: 'host:resume', code: saved.code, key: saved.key });
-      else net.send({ t: 'host:create' });
+      else if (saved && !params.has('new') && !opts.fresh) net.send({ t: 'host:resume', code: saved.code, key: saved.key });
+      else net.send({ t: 'host:create', mode: MODE });
     },
     onMessage,
     onStatus(s) {
@@ -92,7 +95,7 @@ export function mountHost(root, opts = {}) {
         if (!S.running) startShow(fresh ? from : m.step);
         break;
       }
-      case 'host:gone': ss.clear(); net.send({ t: 'host:create' }); break;
+      case 'host:gone': ss.clear(); net.send({ t: 'host:create', mode: MODE }); break;
       case 'host:replaced': showStatus('This game is now open on another screen.'); break;
       case 'players': updatePlayers(m.list, m.newId); break;
       case 'timer': S.deadline = clock.now() + m.remaining; break;
@@ -757,5 +760,5 @@ export function mountHost(root, opts = {}) {
     setTimeout(() => startShow(0), 0);
   }
 
-  return { state: S, cam, net };
+  return { state: S, cam, net, start: () => waiters.start && waiters.start() };
 }

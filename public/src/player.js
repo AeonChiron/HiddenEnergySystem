@@ -21,8 +21,14 @@ const ICON = {
 export function mountPlayer(root, opts = {}) {
   const params = new URLSearchParams(location.search);
   const pathCode = (location.pathname.match(/\/join\/(\d{4,5})/) || [])[1];
+  // Online mode: this phone creates the game and also runs the show itself
+  // (an invisible big screen), so nobody needs a projector.
+  const creating = opts.create || /^\/online\/?$/.test(location.pathname);
   const state = {
-    view: 'join',
+    view: creating ? 'create' : 'join',
+    mode: creating ? 'online' : 'classroom',
+    creator: false,
+    roster: [],
     code: opts.code || pathCode || params.get('code') || '',
     name: '',
     me: null,            // { id, name, color, score, hintsLeft }
@@ -30,7 +36,7 @@ export function mountPlayer(root, opts = {}) {
     open: null,          // current open question payload
     deadline: 0,
     selected: null,
-    bet: 0,
+    bet: null,
     lockedBet: null,
     locked: null,
     hint: null,
@@ -66,6 +72,7 @@ export function mountPlayer(root, opts = {}) {
       case 'joined':
         state.joining = false;
         state.me = { id: m.id, name: m.name, color: m.color, score: m.score, hintsLeft: m.hintsLeft, code: m.code };
+        if (m.mode) state.mode = m.mode;
         if (m.token) store.set(`he:token:${m.code}`, m.token);
         state.code = m.code;
         if (!m.rejoined || state.view === 'join') state.view = 'lobby';
@@ -79,6 +86,7 @@ export function mountPlayer(root, opts = {}) {
         break;
       case 'stage':
         state.stage = m.stage;
+        if (m.stage.mode) state.mode = m.stage.mode;
         if (!['decision', 'reveal'].includes(m.stage.name)) { state.result = null; }
         if (m.stage.name === 'watch' && (!state.open || state.open.question.n !== m.stage.n)) {
           state.open = null; state.locked = null; state.selected = null; state.hint = null; state.bet = null; state.lockedBet = null;
@@ -178,6 +186,48 @@ export function mountPlayer(root, opts = {}) {
     store.set('he:name', name);
     net.send({ t: 'join', code, name, token: store.get(`he:token:${code}`) || undefined });
     render();
+  }
+
+  // ---------- online mode: create the game on this phone ----------
+  let show = null;
+  async function startOnline(fresh) {
+    const { mountHost } = await import('./host/main.js');
+    const box = document.createElement('div');
+    box.className = 'he-hidden-show';
+    box.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(box);
+    show = mountHost(box, { mode: 'online', fresh });
+    const t0 = Date.now();
+    await new Promise((res, rej) => {
+      const iv = setInterval(() => {
+        if (show.state.code) { clearInterval(iv); res(); }
+        else if (Date.now() - t0 > 15000) { clearInterval(iv); rej(new Error('timeout')); }
+      }, 100);
+    });
+    state.creator = true;
+    state.code = show.state.code;
+    try { sessionStorage.setItem('he:online', state.code); } catch {}
+    // Keep the lobby list fresh from the show's own player list.
+    setInterval(() => {
+      const list = (show.state.players || []).map((p) => p.name);
+      if (list.join('|') !== state.roster.join('|')) { state.roster = list; if (state.view === 'lobby') render(); }
+    }, 700);
+  }
+
+  async function doCreate(e) {
+    e.preventDefault();
+    const name = $('#pname', root).value.trim();
+    if (!name) { state.error = 'Pick a nickname first.'; return render(); }
+    state.name = name; state.error = ''; state.joining = true;
+    store.set('he:name', name);
+    render();
+    try { await startOnline(true); }
+    catch { state.joining = false; state.error = "We couldn't start a game. Check your connection and try again."; return render(); }
+    net.send({ t: 'join', code: state.code, name });
+  }
+
+  function startGame() {
+    if (show && show.start) show.start();
   }
 
   function pick(letter) {
@@ -307,14 +357,23 @@ export function mountPlayer(root, opts = {}) {
       case 'join': return `
         <form class="join" autocomplete="off">
           <div class="join-brand">${logoMark()}<h1 class="brand"><span>The Hidden</span>Energy System</h1></div>
-          <p class="lede">Enter the code from the big screen and pick a name. That's all it takes.</p>
+          <p class="lede">Enter the game code and pick a name. That's all it takes.</p>
           <label>Game code<input id="pcode" inputmode="numeric" pattern="[0-9]*" maxlength="5" placeholder="0000" value="${esc(state.code)}" ${state.code ? '' : 'autofocus'}></label>
           <label>Nickname<input id="pname" maxlength="16" placeholder="Your nickname" value="${esc(state.name)}" ${state.code ? 'autofocus' : ''}></label>
           ${state.error ? `<p class="err">${esc(state.error)}</p>` : ''}
           <button class="btn primary" ${state.joining ? 'disabled' : ''}>${state.joining ? 'Joining…' : 'Play'}</button>
           <p class="fine">No account, no email. Just a nickname.</p>
         </form>`;
-      case 'lobby': return `
+      case 'create': return `
+        <form class="join create" autocomplete="off">
+          <div class="join-brand">${logoMark()}<h1 class="brand"><span>The Hidden</span>Energy System</h1></div>
+          <p class="lede">Online game: everyone plays on their own phone. You start it, share the link, and the game runs itself. You can also play alone.</p>
+          <label>Your nickname<input id="pname" maxlength="16" placeholder="Your nickname" value="${esc(state.name)}" autofocus></label>
+          ${state.error ? `<p class="err">${esc(state.error)}</p>` : ''}
+          <button class="btn primary" ${state.joining ? 'disabled' : ''}>${state.joining ? 'Creating…' : 'Create the game'}</button>
+          <p class="fine">Keep this screen open while you play. It runs the game for everyone.</p>
+        </form>`;
+      case 'lobby': return state.mode === 'online' ? onlineLobby() : `
         <section class="center">
           <div class="big-avatar" style="--c:${state.me.color};color:${initialInk(state.me.color)}">${esc(Array.from(state.me.name)[0] || '?').toUpperCase()}</div>
           <h2>You're in.</h2>
@@ -322,12 +381,13 @@ export function mountPlayer(root, opts = {}) {
         </section>`;
       case 'roundIntro': return `
         <section class="center">
+          ${online() ? pic(`art/round${s.round}`, 'stage-pic') : ''}
           <p class="kicker">Round ${esc(s.round)}${s.roundInfo?.theme ? ` · ${esc(s.roundInfo.theme)}` : ''}</p>
           <h2>${esc(s.roundInfo?.name)}</h2>
           <p>${esc(s.roundInfo?.tagline)}</p>
           <p class="pill">Bet up to 50% of your money</p>
         </section>`;
-      case 'watch': return `
+      case 'watch': return online() ? onlineWatch(s) : `
         <section class="center watch">
           <span class="eye">${ICON.eye}</span>
           <h2>Watch the big screen</h2>
@@ -358,7 +418,7 @@ export function mountPlayer(root, opts = {}) {
       case 'howto': return `
         <section class="center howto-p">
           <p class="kicker">How to play</p>
-          <h2>Watch the big screen</h2>
+          <h2>${online() ? 'Quick rules' : 'Watch the big screen'}</h2>
           <ul class="rules">
             <li>You start with <b>$100,000</b>.</li>
             <li>Bet part of it on every answer. Right, you win your bet. Wrong, you lose it.</li>
@@ -379,12 +439,67 @@ export function mountPlayer(root, opts = {}) {
           <p class="pill">${money(state.me?.score)}</p>
           ${state.standing?.recap ? `<div class="recap"><p class="recap-total"><b>${state.standing.recap.right}</b> / ${state.standing.recap.total} right</p>
             <ul>${state.standing.recap.rounds.map((r) => `<li><span>${esc(r.name)}</span><b>${r.right} / ${r.total}</b></li>`).join('')}</ul></div>` : ''}
-          <p class="fine">Watch the big screen for the winners.</p>
+          ${online() ? '' : '<p class="fine">Watch the big screen for the winners.</p>'}
         </section>`;
       case 'kicked': return `<section class="center"><h2>You've been removed from this game</h2><button class="btn" data-act="rejoin">Join again</button></section>`;
       case 'replaced': return `<section class="center"><h2>You're playing in another tab</h2><p>This screen is no longer connected.</p></section>`;
       default: return '';
     }
+  }
+
+  function online() { return state.mode === 'online'; }
+
+  // Pictures: the game's own files, or the inlined copies in the preview build.
+  function pic(key, cls = 'stage-pic') {
+    const src = globalThis.HE_IMG?.[key] || globalThis.HE_IMG?.[key.replace(/^food\//, '')] || `/img/${key}.webp`;
+    return `<figure class="${cls}"><img src="${src}" alt="" loading="eager" onerror="this.parentNode.remove()"></figure>`;
+  }
+
+  function onlineLobby() {
+    const link = `${location.origin}/join/${state.code}`;
+    if (!state.creator) return `
+      <section class="center">
+        <div class="big-avatar" style="--c:${state.me.color};color:${initialInk(state.me.color)}">${esc(Array.from(state.me.name)[0] || '?').toUpperCase()}</div>
+        <h2>You're in.</h2>
+        <p>The game starts as soon as the host presses Start.</p>
+      </section>`;
+    const others = state.roster.filter((n) => n !== state.me.name);
+    return `
+      <section class="center online-lobby">
+        <p class="kicker">Game code</p>
+        <p class="code-big">${esc(state.code)}</p>
+        <p>Friends join at <b>${esc(location.host)}/join</b> with this code, or with your link.</p>
+        <button class="btn" data-act="share">Share the link</button>
+        <ul class="roster">${[state.me.name, ...others].map((n) => `<li>${esc(n)}</li>`).join('')}</ul>
+        <p class="fine">${others.length ? `${others.length + 1} players ready` : 'Just you so far. You can play alone.'}</p>
+        <button class="btn primary start" data-act="start">${others.length ? 'Start the game' : 'Start playing alone'}</button>
+      </section>`;
+  }
+
+  function onlineWatch(s) {
+    const q = s.question;
+    if (!q) return `<section class="center"><h2>Get ready</h2></section>`;
+    if (q.kind === 'binary') return `
+      <section class="center watch online-watch">
+        ${pic(`food/${q.food}`, 'stage-pic food')}
+        <p class="kicker">Question ${q.n} of 12</p>
+        <h2>${esc(q.title)}</h2>
+        ${q.caption ? `<p>${esc(q.caption)}</p>` : ''}
+        <p class="q">${esc(q.prompt)}</p>
+      </section>`;
+    const o = s.letter && q.options?.find((x) => x.letter === s.letter);
+    if (o) return `
+      <section class="center watch online-watch">
+        ${o.scene ? pic(`art/${o.scene}`) : ''}
+        <p class="opt"><b class="ltr l-${o.letter}">${o.letter}</b><span>${esc(o.text)}</span></p>
+        <p class="fine">${esc(q.prompt)}</p>
+      </section>`;
+    return `
+      <section class="center watch online-watch">
+        <p class="kicker">${q.n === 13 ? 'Bonus question' : `Question ${q.n} of 12`}</p>
+        <h2 class="q-big">${esc(q.prompt)}</h2>
+        ${q.options ? '<p class="fine">Here are your choices, one at a time.</p>' : ''}
+      </section>`;
   }
 
   function labelFor(v) {
@@ -444,7 +559,9 @@ export function mountPlayer(root, opts = {}) {
       </section>`;
     }
     const ok = r.correct;
+    const ex = online() && state.stage?.explain;
     return `<section class="center res ${ok ? 'ok' : 'no'}">
+      ${ex?.scene ? pic(`art/${ex.scene}`, 'stage-pic small') : ''}
       <span class="mark">${ok ? ICON.check : ICON.cross}</span>
       <h2>${ok ? 'Correct' : r.value == null ? "Time's up" : 'Not quite'}</h2>
       ${ok ? `<p class="pill gain">${r.bet ? `+${money(r.bet)}` : 'No bet placed'}</p>` : `<p>The answer was <b>${esc(labelFor(r.answer))}</b>.</p>${r.gained < 0 ? `<p class="pill loss">${money(r.gained)}</p>` : r.bet ? '<p class="pill">Nothing lost</p>' : ''}`}
@@ -455,7 +572,12 @@ export function mountPlayer(root, opts = {}) {
 
   function bind() {
     const form = $('form.join', root);
-    if (form) form.addEventListener('submit', doJoin);
+    if (form) form.addEventListener('submit', state.view === 'create' ? doCreate : doJoin);
+    $('[data-act="start"]', root)?.addEventListener('click', startGame);
+    $('[data-act="share"]', root)?.addEventListener('click', async () => {
+      const url = `${location.origin}/join/${state.code}`;
+      try { if (navigator.share) await navigator.share({ title: 'The Hidden Energy System', url }); else { await navigator.clipboard.writeText(url); const t = $('.toast', root); if (t) { t.textContent = 'Link copied'; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 1800); } } } catch {}
+    });
     root.querySelectorAll('[data-pick]').forEach((b) => b.addEventListener('click', () => pick(b.dataset.pick)));
     const lock = $('[data-act="lock"]', root);
     if (lock) lock.addEventListener('click', () => {
@@ -514,6 +636,16 @@ export function mountPlayer(root, opts = {}) {
   }
 
   function buzz(p) { try { navigator.vibrate && navigator.vibrate(p); } catch {} }
+
+  if (creating) {
+    let saved = null;
+    try { saved = sessionStorage.getItem('he:online'); } catch {}
+    const token = saved && store.get(`he:token:${saved}`);
+    if (token) {
+      state.view = 'join'; state.joining = true; state.code = saved;
+      startOnline(false).then(() => net.send({ t: 'join', code: state.code, token })).catch(() => { state.view = 'create'; state.joining = false; render(); });
+    }
+  }
 
   render();
   return { state, net };

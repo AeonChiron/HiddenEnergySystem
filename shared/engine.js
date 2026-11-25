@@ -43,7 +43,7 @@ export class Hub {
     if (!msg || typeof msg !== 'object' || typeof msg.t !== 'string') return;
     try {
       if (msg.t === 'ping') return conn.send({ t: 'pong', at: msg.at, serverNow: this.now() });
-      if (msg.t === 'host:create') return this.hostCreate(conn);
+      if (msg.t === 'host:create') return this.hostCreate(conn, msg.mode);
       if (msg.t === 'host:resume') return this.hostResume(conn, msg);
       if (msg.t === 'join') return this.join(conn, msg);
       const m = this.meta.get(conn);
@@ -95,11 +95,12 @@ export class Hub {
     return String(10000 + this.rooms.size);
   }
 
-  hostCreate(conn) {
+  // mode: 'classroom' (a big screen plus phones) or 'online' (phones only).
+  hostCreate(conn, mode) {
     const code = this.newCode();
     const key = Array.from({ length: 4 }, () => Math.floor(this.random() * 2 ** 32).toString(36)).join('');
     const room = {
-      code, key, host: conn,
+      code, key, host: conn, mode: mode === 'online' ? 'online' : 'classroom',
       players: new Map(), order: 0, colorIx: 0,
       step: 0, stage: { name: 'lobby' },
       open: null, results: {}, botTimers: [],
@@ -129,6 +130,7 @@ export class Hub {
     return {
       content: { rounds: ROUNDS, questions: QUESTIONS, steps: STEPS, answerSeconds: this.answerMs / 1000, maxXp: REGULAR_MAX_XP, hints: STARTING_HINTS },
       step: room.step,
+      mode: room.mode,
       stage: room.stage,
       results: room.results,
       open: room.open ? { n: room.open.n, remaining: this.remaining(room), total: this.answerMs } : null,
@@ -157,13 +159,22 @@ export class Hub {
     }
   }
 
-  broadcastStage(room) {
-    const s = { ...room.stage };
-    if (s.n && qByN.has(s.n)) s.question = publicQuestion(qByN.get(s.n));
+  // What a phone needs to know about the current moment of the show.
+  stageFor(room) {
+    const s = { ...room.stage, mode: room.mode };
+    const q = s.n && qByN.get(s.n);
+    if (q) s.question = publicQuestion(q);
+    // The explanation goes out only once the answer is revealed.
+    if (q && s.name === 'reveal' && q.reveal) s.explain = { scene: q.reveal.scene || null, text: q.reveal.text || null, headline: q.reveal.headline || null };
     if (s.round && ROUNDS.find((r) => r.id === s.round)) {
       const r = ROUNDS.find((x) => x.id === s.round);
       s.roundInfo = { id: r.id, name: r.name, theme: r.theme, tagline: r.tagline, points: r.points, discovery: r.discovery };
     }
+    return s;
+  }
+
+  broadcastStage(room) {
+    const s = this.stageFor(room);
     for (const p of room.players.values()) if (p.conn) p.conn.send({ t: 'stage', stage: s });
     // A finished game tells every phone where it placed.
     if (s.name === 'podium' || s.name === 'finale') this.sendStandings(room, 'final');
@@ -220,7 +231,7 @@ export class Hub {
   welcome(room, p, rejoined) {
     p.conn.send({
       t: 'joined', rejoined,
-      id: p.id, token: p.token, name: p.name, color: p.color, code: room.code,
+      id: p.id, token: p.token, name: p.name, color: p.color, code: room.code, mode: room.mode,
       score: p.score, hintsLeft: p.hintsLeft, maxXp: REGULAR_MAX_XP,
     });
     this.broadcastStageTo(room, p);
@@ -232,13 +243,7 @@ export class Hub {
   }
 
   broadcastStageTo(room, p) {
-    const s = { ...room.stage };
-    if (s.n && qByN.has(s.n)) s.question = publicQuestion(qByN.get(s.n));
-    if (s.round && ROUNDS.find((r) => r.id === s.round)) {
-      const r = ROUNDS.find((x) => x.id === s.round);
-      s.roundInfo = { id: r.id, name: r.name, theme: r.theme, tagline: r.tagline, points: r.points, discovery: r.discovery };
-    }
-    p.conn.send({ t: 'stage', stage: s });
+    p.conn.send({ t: 'stage', stage: this.stageFor(room) });
   }
 
   sendPlayers(room, newId = null) {
