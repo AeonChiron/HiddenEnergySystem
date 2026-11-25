@@ -15,6 +15,9 @@ const $ = (sel, el = document) => el.querySelector(sel);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fmt = (n) => Number(n || 0).toLocaleString('en-US');
 const pad2 = (n) => String(n).padStart(2, '0');
+// Seed's short link to the site, shown wherever players are told where to go.
+// The QR code and shared links still open the game directly, code included.
+const SHORT_LINK = 'tinyurl.com/heritagenutritionquiz';
 
 export function mountHost(root, opts = {}) {
   const params = new URLSearchParams(location.search);
@@ -180,14 +183,15 @@ export function mountHost(root, opts = {}) {
     } catch {}
     const url = `${base}/join/${S.code}`;
     const shown = url.replace(/^https?:\/\//, '');
-    $('#join-url', root).textContent = shown.replace(/\/join\/\d+$/, '/join');
+    const easy = opts.joinBase ? shown.replace(/\/join\/\d+$/, '/join') : SHORT_LINK;
+    $('#join-url', root).textContent = easy;
     $('#join-code', root).textContent = S.code;
     const qr = qrcode(0, 'M');
     qr.addData(url);
     qr.make();
     $('#qr', root).innerHTML = qr.createSvgTag({ cellSize: 8, margin: 3, scalable: true });
     const j = $('.hud-join', root);
-    j.innerHTML = `Join at <b>${esc(shown.replace(/\/join\/\d+$/, '/join'))}</b> · code <b>${S.code}</b>`;
+    j.innerHTML = `Join at <b>${esc(easy)}</b> · code <b>${S.code}</b>`;
   }
 
   // ---------- lobby players ----------

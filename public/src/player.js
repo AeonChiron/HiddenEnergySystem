@@ -512,7 +512,7 @@ export function mountPlayer(root, opts = {}) {
       <section class="center online-lobby">
         <p class="kicker">Game code</p>
         <p class="code-big">${esc(state.code)}</p>
-        <p>Friends join at <b>${esc(location.host)}/join</b> with this code, or with your link.</p>
+        <p>Friends go to <b>tinyurl.com/heritagenutritionquiz</b>, tap Join and enter this code. Or send them your link.</p>
         <button class="btn" data-act="share">Share the link</button>
         <ul class="roster">${[state.me.name, ...others].map((n) => `<li>${esc(n)}</li>`).join('')}</ul>
         <p class="fine">${others.length ? `${others.length + 1} players ready` : 'Just you so far. You can play alone.'}</p>
