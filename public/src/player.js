@@ -237,6 +237,7 @@ export function mountPlayer(root, opts = {}) {
     if (!state.creator || !show || ['create', 'join', 'lobby', 'kicked'].includes(state.view)) return '';
     return `<div class="host-ctl" role="toolbar" aria-label="Game controls">
       <button class="btn" data-act="back" ${show.canBack() ? '' : 'disabled'}>Back</button>
+      <button class="btn" data-act="skip">Next</button>
       <button class="btn" data-act="pause" aria-pressed="${state.paused ? 'true' : 'false'}">${state.paused ? 'Resume' : 'Pause'}</button>
     </div>${state.paused ? '<p class="paused-note">Paused for everyone</p>' : ''}`;
   }
@@ -619,6 +620,7 @@ export function mountPlayer(root, opts = {}) {
     if (form) form.addEventListener('submit', state.view === 'create' ? doCreate : doJoin);
     $('[data-act="start"]', root)?.addEventListener('click', startGame);
     $('[data-act="pause"]', root)?.addEventListener('click', () => { state.paused = show.pause(); render(); });
+    $('[data-act="skip"]', root)?.addEventListener('click', () => show.next());
     $('[data-act="back"]', root)?.addEventListener('click', () => { if (show.canBack()) { state.paused = false; show.back(); } });
     $('[data-act="share"]', root)?.addEventListener('click', async () => {
       const url = `${location.origin}/join/${state.code}`;

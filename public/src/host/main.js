@@ -22,7 +22,14 @@ const SHORT_LINK = 'tinyurl.com/heritagenutritionquiz';
 export function mountHost(root, opts = {}) {
   const params = new URLSearchParams(location.search);
   const SPEED = Number(params.get('speed')) || opts.speed || 1;
-  const wait = (ms) => clock.sleep(ms / SPEED);
+  // Every hold in the show can be cut short with Space or Next (Seed: Next is always there).
+  const hold = (realMs) => new Promise((res) => {
+    let done = false;
+    const fin = () => { if (done) return; done = true; if (waiters.skip === fin) waiters.skip = null; res(); };
+    waiters.skip = fin;
+    clock.sleep(realMs).then(fin);
+  });
+  const wait = (ms) => hold(ms / SPEED);
   // How long each answer's cutscene holds on screen (Seed: about 12 seconds).
   // Answer close-ups (Seed, Nov 23): A holds 10 s, B and C 8 s. ?cut= overrides for tests.
   const CUT_FIXED = Number(params.get('cut')) || opts.cutMs || 0;
@@ -67,7 +74,7 @@ export function mountHost(root, opts = {}) {
     open: null, deadline: 0, progress: { answered: 0, total: 0 },
     started: false, running: false,
   };
-  const waiters = { results: new Map(), standings: null, opened: new Map(), next: null, start: null };
+  const waiters = { results: new Map(), standings: null, opened: new Map(), next: null, start: null, skip: null };
 
   // ---------- session ----------
   const ss = {
@@ -298,11 +305,20 @@ export function mountHost(root, opts = {}) {
     const ms = AUTO ? autoMs / SPEED : 0;
     if (ms > 0) { btn.style.setProperty('--t', `${ms}ms`); void btn.offsetWidth; btn.classList.add('counting'); }
     return new Promise((res) => {
-      waiters.next = () => { cancel(); btn.hidden = true; btn.classList.remove('counting'); waiters.next = null; res(); };
+      waiters.next = () => { cancel(); btn.classList.remove('counting'); btn.querySelector('span').textContent = 'Next'; btn.hidden = !S.started; waiters.next = null; res(); };
       if (ms > 0) cancel = clock.after(ms, () => waiters.next && waiters.next());
     });
   }
-  $('.hud-next', root).addEventListener('click', () => waiters.next && waiters.next());
+  // Next / Space: start, then whatever the show is waiting on. During the answer
+  // timer it ends the question early.
+  function advance() {
+    unlockAudio(); unlockMusic();
+    if (waiters.start) return waiters.start();
+    if (waiters.next) return waiters.next();
+    if (waiters.skip) return waiters.skip();
+    if (S.open && !S.results[S.open.n]) net.send({ t: 'host:close' });
+  }
+  $('.hud-next', root).addEventListener('click', advance);
 
   preloadMusic();
   sfxListeners.push(duckMusic);
@@ -320,9 +336,7 @@ export function mountHost(root, opts = {}) {
     if (e.target.closest && e.target.closest('input,textarea')) return;
     if (e.key === ' ' || e.key === 'Enter' || e.key === 'ArrowRight') {
       e.preventDefault();
-      unlockAudio(); unlockMusic();
-      if (waiters.start) waiters.start();
-      else if (waiters.next) waiters.next();
+      advance();
     }
     if (e.key === 'm' || e.key === 'M') toggleMute();
     if (e.key === 'f' || e.key === 'F') toggleFs();
@@ -399,7 +413,7 @@ export function mountHost(root, opts = {}) {
   async function startShow(from, auto) {
     S.running = true;
     const steps = S.content.steps;
-    if (from > 0) S.started = true;
+    if (from > 0) { S.started = true; $('.hud-next', root).hidden = false; }
     if (from > 0 && auto) playMusic(songAt(steps, from));
     else if (from > 0) {
       // Browsers only play sound after a click, and "Play from here" reloads
@@ -456,9 +470,11 @@ export function mountHost(root, opts = {}) {
       const go = () => { unlockAudio(); unlockMusic(); waiters.start = null; res(); };
       waiters.start = go;
       startBtn.addEventListener('click', go);
+      if (S.startAsked) { S.startAsked = false; go(); }
     });
     startBtn.remove();
     S.started = true;
+    $('.hud-next', root).hidden = false;
     sfx('sting');
   }
 
@@ -472,7 +488,8 @@ export function mountHost(root, opts = {}) {
     const beats = [...el.querySelectorAll('.beat')];
     // The whole demo fits in about 40 seconds (Seed: each rule 2-3 s longer).
     // Each beat gets a share of the time left, weighted by how much text it has to read.
-    const TOTAL = 40000 / SPEED, MOVE = 1500 / SPEED;
+    // Online (phones only, often solo): the rules are short, about 16 seconds.
+    const TOTAL = (MODE === 'online' ? 16000 : 40000) / SPEED, MOVE = 1500 / SPEED;
     const t0 = clock.now();
     const chars = HOWTO_BEATS.map((b) => b.lines.join(' ').length);
     for (let i = 0; i < beats.length; i++) {
@@ -485,9 +502,9 @@ export function mountHost(root, opts = {}) {
       sfx(i === beats.length - 1 ? 'sting' : 'pop');
       const left = TOTAL - (clock.now() - t0) - (beats.length - 1 - i) * MOVE;
       const share = chars[i] / chars.slice(i).reduce((x, y) => x + y, 0);
-      const hold = Math.max(4900 / SPEED, left * share) * SPEED;
+      const beatMs = Math.max((MODE === 'online' ? 3000 : 4900) / SPEED, left * share) * SPEED;
       const last = i === beats.length - 1;
-      await waitNext(last ? 'Start round 1' : 'Next', hold);
+      await waitNext(last ? 'Start round 1' : 'Next', beatMs);
       if (!last) { b.classList.add('off'); await wait(650); }
     }
   }
@@ -562,8 +579,8 @@ export function mountHost(root, opts = {}) {
       setTimeout(() => panel.classList.add('in', 'play'), 180 / SPEED);
       await move;
       // Seed (Nov 24): each option is on screen exactly 6 seconds, the camera move included.
-      const hold = CUT_FIXED || 6000;
-      await clock.sleep(Math.max(0, hold / SPEED - (clock.now() - t0)));
+      const holdMs = CUT_FIXED || 6000;
+      await hold(Math.max(0, holdMs / SPEED - (clock.now() - t0)));
       panel.classList.remove('play');
     }
     // Scene 6: pull back to reveal everything, E underneath.
@@ -815,9 +832,11 @@ export function mountHost(root, opts = {}) {
 
   return {
     state: S, cam, net,
-    start: () => waiters.start && waiters.start(),
+    // A Start pressed before the lobby is ready is remembered, not lost.
+    start: () => { if (waiters.start) waiters.start(); else S.startAsked = true; },
     pause: () => { togglePause(); return clock.paused; },
     back: goBack,
+    next: advance,
     canBack: () => S.started && S.step > 1,
   };
 }
