@@ -34,12 +34,17 @@ function ensure() {
   return true;
 }
 
+// A track that fails to download (a slow server waking up) is tried again,
+// up to 4 times, and a failure is never remembered, so the next call retries.
+function fetchTrack(slot, tries = 4) {
+  return fetch(`${base()}${slot}.mp3`)
+    .then((r) => { if (!r.ok) throw new Error(String(r.status)); return r.arrayBuffer(); })
+    .then((b) => new Promise((res, rej) => ctx.decodeAudioData(b, res, rej)))
+    .catch((e) => (tries > 1 ? new Promise((res) => setTimeout(res, 1500)).then(() => fetchTrack(slot, tries - 1)) : Promise.reject(e)));
+}
 function load(slot) {
   if (!(slot in bufs)) {
-    bufs[slot] = fetch(`${base()}${slot}.mp3`)
-      .then((r) => (r.ok ? r.arrayBuffer() : null))
-      .then((b) => (b ? new Promise((res, rej) => ctx.decodeAudioData(b, res, rej)) : null))
-      .catch(() => null);
+    bufs[slot] = fetchTrack(slot).catch(() => { delete bufs[slot]; return null; });
   }
   return bufs[slot];
 }
@@ -153,7 +158,12 @@ export async function playMusic(slot) {
   const now = ctx.currentTime;
   const gin = g[slot], gout = old && g[old.slot];
   const loop = slot !== 'winners';
-  if (!buf) { if (old) fadeOutVoice(ctx, old); return 0; }
+  if (!buf) {
+    // Still no file: keep the old song going and try this one again shortly.
+    cur = old; wanted = null;
+    setTimeout(() => { if (wanted === null) playMusic(slot); }, 4000);
+    return 0;
+  }
   if (!old || !gout || !gin || !gin.beats.length || ctx.state !== 'running') {
     if (old) fadeOutVoice(ctx, old);
     const at = now + MIX.inDelay;
@@ -214,7 +224,7 @@ export function crossTo(ctx, dest, old, slot, buf, gin, gout, now = ctx.currentT
 
 // Sidechain: sound effects push the music down for a moment so they read
 // clearly, then the music swells back.
-const DUCK = { sting: [0.45, 1.4], reveal: [0.5, 1.2], correct: [0.5, 1.2], wrong: [0.55, 1.0], fanfare: [0.4, 2.2], drumroll: [0.55, 1.8], lock: [0.75, 0.5] };
+const DUCK = { riser: [0.6, 1.6], impact: [0.45, 1.3], sting: [0.45, 1.4], reveal: [0.5, 1.2], correct: [0.5, 1.2], wrong: [0.55, 1.0], fanfare: [0.4, 2.2], drumroll: [0.55, 1.8], lock: [0.75, 0.5] };
 export function duckMusic(name) {
   const d = DUCK[name];
   if (!d || !duck) return;

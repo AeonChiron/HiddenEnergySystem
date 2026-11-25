@@ -134,12 +134,18 @@ export function mountPlayer(root, opts = {}) {
         if (state.me) state.me.score = m.score;
         state.view = 'result';
         buzz(m.correct ? [30, 60, 30] : 80);
+        if (m.correct || m.won) celebrate(m.streakBonus || m.won ? 160 : 80);
         break;
       case 'standing':
         state.standing = m;
         if (state.me) state.me.score = m.score;
         if (m.final) state.view = 'final';
         break;
+      case 'rewind':
+        if (state.me) { state.me.score = m.score; state.me.hintsLeft = m.hintsLeft; }
+        state.result = null; state.standing = null; state.open = null;
+        state.locked = null; state.selected = null; state.hint = null; state.bet = null; state.lockedBet = null;
+        return; // the stage message right after this draws the screen
       case 'reset':
         if (state.me) { state.me.score = m.score; state.me.hintsLeft = m.hintsLeft; }
         state.result = null; state.standing = null; state.open = null;
@@ -224,6 +230,31 @@ export function mountPlayer(root, opts = {}) {
     try { await startOnline(true); }
     catch { state.joining = false; state.error = "We couldn't start a game. Check your connection and try again."; return render(); }
     net.send({ t: 'join', code: state.code, name });
+  }
+
+  // Only the phone that runs an online game gets these.
+  function controls() {
+    if (!state.creator || !show || ['create', 'join', 'lobby', 'kicked'].includes(state.view)) return '';
+    return `<div class="host-ctl" role="toolbar" aria-label="Game controls">
+      <button class="btn" data-act="back" ${show.canBack() ? '' : 'disabled'}>Back</button>
+      <button class="btn" data-act="pause" aria-pressed="${state.paused ? 'true' : 'false'}">${state.paused ? 'Resume' : 'Pause'}</button>
+    </div>${state.paused ? '<p class="paused-note">Paused for everyone</p>' : ''}`;
+  }
+
+  // Confetti on the phone when you get it right. One canvas, outside the re-rendered app.
+  let confCanvas = null;
+  async function celebrate(count) {
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    try {
+      const { confetti } = await import('./host/confetti.js');
+      if (!confCanvas) {
+        confCanvas = document.createElement('canvas');
+        confCanvas.setAttribute('aria-hidden', 'true');
+        confCanvas.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:50;display:none';
+        document.body.appendChild(confCanvas);
+      }
+      confetti(confCanvas, { duration: 2400, count });
+    } catch {}
   }
 
   function startGame() {
@@ -315,6 +346,7 @@ export function mountPlayer(root, opts = {}) {
     root.className = `he-player v-${state.view}${fresh ? ' fresh' : ''}`;
     root.innerHTML = `
       ${state.me ? header() : ''}
+      ${controls()}
       <main class="pv">${body()}</main>
       <div class="net" role="status" aria-live="polite"></div>
       <div class="toast" role="status" aria-live="polite"></div>`;
@@ -415,17 +447,21 @@ export function mountPlayer(root, opts = {}) {
           ${state.standing ? `<p class="rank">#${state.standing.rank}</p><p>of ${state.standing.of} players</p>` : '<h2>Leaderboard</h2>'}
           <p class="pill">${money(state.me?.score)}</p>
         </section>`;
-      case 'howto': return `
+      case 'howto': {
+        // Each rule shows up here at the same moment it appears on the big screen.
+        const beat = Number.isInteger(s?.beat) ? s.beat : -1;
+        if (beat < 0) return `
         <section class="center howto-p">
           <p class="kicker">How to play</p>
-          <h2>${online() ? 'Quick rules' : 'Watch the big screen'}</h2>
-          <ul class="rules">
-            <li>You start with <b>$100,000</b>.</li>
-            <li>Bet part of it on every answer. Right, you win your bet. Wrong, you lose it.</li>
-            <li>Get 3 right in a row, with a bet on each: <b>$50,000 bonus</b>.</li>
-            <li><b>2 hints</b> for the whole game. Only you see them.</li>
-          </ul>
+          <h2>${online() ? 'Here come the rules' : 'Look at the big screen'}</h2>
         </section>`;
+        return `
+        <section class="center howto-p">
+          <p class="kicker">How to play</p>
+          <ul class="rules">${RULES.slice(0, beat + 1).map((r, i) => `<li class="${i === beat ? 'latest' : ''}">${r}</li>`).join('')}</ul>
+          ${online() ? '' : '<p class="fine">Keep watching the big screen.</p>'}
+        </section>`;
+      }
       case 'bonusIntro': return `
         <section class="center">
           <p class="kicker">Final challenge</p>
@@ -449,10 +485,18 @@ export function mountPlayer(root, opts = {}) {
 
   function online() { return state.mode === 'online'; }
 
+  // The same four rules as the big screen's how-to, in the same order.
+  const RULES = [
+    'Three rounds: <b>food, energy, repair</b>. Answer on your phone. Most money wins.',
+    'You start with <b>$100,000</b>. Bet 10, 15, 25 or 50% of it on each answer.',
+    'Get 3 right in a row, with a bet on each: <b>$50,000 bonus</b>.',
+    '<b>2 hints</b> for the whole game. Only you see them.',
+  ];
+
   // Pictures: the game's own files, or the inlined copies in the preview build.
   function pic(key, cls = 'stage-pic') {
     const src = globalThis.HE_IMG?.[key] || globalThis.HE_IMG?.[key.replace(/^food\//, '')] || `/img/${key}.webp`;
-    return `<figure class="${cls}"><img src="${src}" alt="" loading="eager" onerror="this.parentNode.remove()"></figure>`;
+    return `<figure class="${cls}"><img src="${src}" alt="" loading="eager" onerror="const n=+(this.dataset.retry||0);if(n>=3){this.parentNode.remove();return;}this.dataset.retry=n+1;setTimeout(()=>{this.src=this.src.split('?')[0]+'?r='+(n+1)},800*(n+1))"></figure>`;
   }
 
   function onlineLobby() {
@@ -565,7 +609,7 @@ export function mountPlayer(root, opts = {}) {
       <span class="mark">${ok ? ICON.check : ICON.cross}</span>
       <h2>${ok ? 'Correct' : r.value == null ? "Time's up" : 'Not quite'}</h2>
       ${ok ? `<p class="pill gain">${r.bet ? `+${money(r.bet)}` : 'No bet placed'}</p>` : `<p>The answer was <b>${esc(labelFor(r.answer))}</b>.</p>${r.gained < 0 ? `<p class="pill loss">${money(r.gained)}</p>` : r.bet ? '<p class="pill">Nothing lost</p>' : ''}`}
-      ${r.streakBonus ? `<p class="streak">Three in a row. Bonus +${money(r.streakBonus)}</p>` : ok && r.streak ? `<p class="fine">${r.streak} right in a row with a bet. Three pays a $50,000 bonus.</p>` : ''}
+      ${r.streakBonus ? `<p class="streak">Three in a row. Bonus +${money(r.streakBonus)}</p>` : ok && r.streak === 2 ? '<p class="streak hot">2 in a row. One more pays $50,000!</p>' : ok && r.streak ? `<p class="fine">${r.streak} right in a row with a bet. Three pays a $50,000 bonus.</p>` : ''}
       <p class="expl">${esc(r.explanation)}</p>
     </section>`;
   }
@@ -574,6 +618,8 @@ export function mountPlayer(root, opts = {}) {
     const form = $('form.join', root);
     if (form) form.addEventListener('submit', state.view === 'create' ? doCreate : doJoin);
     $('[data-act="start"]', root)?.addEventListener('click', startGame);
+    $('[data-act="pause"]', root)?.addEventListener('click', () => { state.paused = show.pause(); render(); });
+    $('[data-act="back"]', root)?.addEventListener('click', () => { if (show.canBack()) { state.paused = false; show.back(); } });
     $('[data-act="share"]', root)?.addEventListener('click', async () => {
       const url = `${location.origin}/join/${state.code}`;
       try { if (navigator.share) await navigator.share({ title: 'The Hidden Energy System', url }); else { await navigator.clipboard.writeText(url); const t = $('.toast', root); if (t) { t.textContent = 'Link copied'; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 1800); } } } catch {}

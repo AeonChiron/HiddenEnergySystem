@@ -16,3 +16,5 @@
 .landing .mode span { font-size: 16px; line-height: 1.35; color: var(--ink-2); }
 .landing .dev { display: inline-block; margin-top: 28px; font-size: 14px; color: var(--ink-3); }
 @media (max-width: 520px) { .landing .modes { grid-template-columns: 1fr; } .landing p { font-size: 17px; margin-bottom: 24px; } }
+
+.landing .landing-logo { width: clamp(96px, 22vw, 140px); height: clamp(96px, 22vw, 140px); margin: 0 auto 18px; }

@@ -103,7 +103,7 @@ export class Hub {
       code, key, host: conn, mode: mode === 'online' ? 'online' : 'classroom',
       players: new Map(), order: 0, colorIx: 0,
       step: 0, stage: { name: 'lobby' },
-      open: null, results: {}, botTimers: [],
+      open: null, results: {}, botTimers: [], snaps: {},
       createdAt: this.now(), lastActive: this.now(),
     };
     this.rooms.set(code, room);
@@ -155,6 +155,7 @@ export class Hub {
       case 'host:restart': return this.restart(room);
       case 'host:hold': return this.hold(room);
       case 'host:unhold': return this.unhold(room);
+      case 'host:back': return this.rewind(room, Number(msg.step));
       default: return;
     }
   }
@@ -275,6 +276,8 @@ export class Hub {
       // Already played (host reloaded mid-reveal): just resend the results.
       return room.host && room.host.send({ t: 'results', ...room.results[n] });
     }
+    // What everyone had before this question, so Back can undo it.
+    room.snaps[n] = new Map([...room.players.values()].map((p) => [p.id, { score: p.score, streak: p.streak, hintsLeft: p.hintsLeft, hinted: [...p.hintedOn] }]));
     const deadline = this.now() + this.answerMs;
     room.open = { n, deadline, timer: this.setTimeout(() => this.closeQuestion(room), this.answerMs + CLOSE_GRACE_MS) };
     room.stage = { name: 'decision', n, round: q.round };
@@ -550,6 +553,7 @@ export class Hub {
     room.botTimers.forEach((t) => this.clearTimeout(t));
     room.botTimers = [];
     room.results = {};
+    room.snaps = {};
     room.step = 0;
     room.stage = { name: 'lobby' };
     for (const p of room.players.values()) {
@@ -562,6 +566,35 @@ export class Hub {
   }
 }
 
+// Back: undo every question from `step` on (money, streaks, hints, answers)
+// and put the game at that step. The host then replays from there.
+Hub.prototype.rewind = function rewind(room, step) {
+  if (!Number.isInteger(step) || step < 0 || step >= STEPS.length) return;
+  if (room.open) { this.clearTimeout(room.open.timer); room.open = null; }
+  room.botTimers.forEach((t) => this.clearTimeout(t));
+  room.botTimers = [];
+  room.held = false;
+  const undo = STEPS.slice(step).filter((s) => s.type === 'question').map((s) => s.n);
+  const first = undo.find((n) => room.snaps[n]);
+  if (first) {
+    for (const [id, v] of room.snaps[first]) {
+      const p = room.players.get(id);
+      if (p) { p.score = v.score; p.streak = v.streak; p.hintsLeft = v.hintsLeft; p.hintedOn = new Set(v.hinted); }
+    }
+  }
+  for (const n of undo) {
+    delete room.results[n]; delete room.snaps[n];
+    for (const p of room.players.values()) delete p.answers[n];
+  }
+  const s = STEPS[step];
+  room.step = step;
+  room.stage = s.type === 'question' ? { name: 'watch', n: s.n, round: qByN.get(s.n)?.round } : { name: s.type, ...(s.round ? { round: s.round } : {}) };
+  for (const p of room.players.values()) if (p.conn) p.conn.send({ t: 'rewind', score: p.score, hintsLeft: p.hintsLeft });
+  this.broadcastStage(room);
+  this.sendPlayers(room);
+  if (room.host) room.host.send({ t: 'host:rewound', step });
+};
+
 function sanitizeStage(s) {
   const out = { name: 'lobby' };
   if (!s || typeof s !== 'object') return out;
@@ -570,6 +603,7 @@ function sanitizeStage(s) {
   if (Number.isInteger(s.n) && qByN.has(s.n)) out.n = s.n;
   if (Number.isInteger(s.round) && s.round >= 1 && s.round <= 3) out.round = s.round;
   if (s.round === 'bonus') out.round = 'bonus';
+  if (Number.isInteger(s.beat) && s.beat >= -1 && s.beat < 10) out.beat = s.beat;
   if (typeof s.letter === 'string' && /^[A-E]$|^(HIGH|LOW)$/.test(s.letter)) out.letter = s.letter;
   return out;
 }

@@ -39,6 +39,7 @@ export function mountHost(root, opts = {}) {
       <div class="hud-tools">
         <button class="tool" data-tool="mute" title="Mute (M)">Sound on</button>
         <button class="tool" data-tool="fs" title="Fullscreen (F)">Fullscreen</button>
+        ${opts.connect ? '' : '<button class="tool" data-tool="back" title="Back one step (Left arrow)">Back</button>'}
         <button class="tool" data-tool="pause" title="Pause (P)">Pause</button>
         <button class="tool" data-tool="board" title="See the whole board (test mode)">Whole board</button>
         <button class="tool" data-tool="restart" title="Start over from the lobby">Restart</button>
@@ -46,6 +47,16 @@ export function mountHost(root, opts = {}) {
       <div class="hud-status" role="status"></div>
     </div>
     <canvas class="confetti" id="confetti"></canvas>`;
+
+  // A picture that fails (a slow server waking up) tries again, up to 4 times.
+  root.addEventListener('error', (e) => {
+    const img = e.target;
+    if (!img || img.tagName !== 'IMG' || !/\/img\//.test(img.src)) return;
+    const n = Number(img.dataset.retry || 0);
+    if (n >= 4) return;
+    img.dataset.retry = n + 1;
+    setTimeout(() => { img.src = `${img.src.split('?')[0]}?r=${n + 1}`; }, 800 * (n + 1));
+  }, true);
 
   const S = {
     code: null, key: null, content: null, zones: null,
@@ -92,7 +103,18 @@ export function mountHost(root, opts = {}) {
           if (params.has('bots') || opts.previewBots) net.send({ t: 'host:bots', n: Number(params.get('bots')) || opts.previewBots || 8 });
         }
         const from = params.has('from') ? Number(params.get('from')) : opts.from || 0;
-        if (!S.running) startShow(fresh ? from : m.step);
+        // After Back (or any reload of this screen) pick the show up where the game is.
+        const resumed = !params.has('new') && !opts.fresh && m.step > 0;
+        let auto = false;
+        try { auto = sessionStorage.getItem('he:auto') === '1'; sessionStorage.removeItem('he:auto'); } catch {}
+        if (!S.running) startShow(resumed ? m.step : fresh ? from : m.step, auto || MODE === 'online');
+        break;
+      }
+      case 'host:rewound': {
+        try { sessionStorage.setItem('he:auto', '1'); } catch {}
+        // Reload into the same game (drop ?new, which would start a fresh one).
+        const q = new URLSearchParams(location.search); ['new', 'from', 'bots'].forEach((k) => q.delete(k));
+        location.replace(location.pathname + (q.toString() ? `?${q}` : ''));
         break;
       }
       case 'host:gone': ss.clear(); net.send({ t: 'host:create', mode: MODE }); break;
@@ -313,6 +335,15 @@ export function mountHost(root, opts = {}) {
   }
   root.querySelector('[data-tool="pause"]').addEventListener('click', togglePause);
   window.addEventListener('keydown', (e) => { if ((e.key === 'p' || e.key === 'P') && !(e.target.closest && e.target.closest('input,textarea'))) togglePause(); });
+  // Back: one step back in the show. Questions from there on are undone and play again.
+  function goBack() {
+    if (opts.connect || !S.started || S.step <= 1) return;
+    const target = S.step - 1;
+    if (clock.paused) togglePause();
+    net.send({ t: 'host:back', step: target });
+  }
+  root.querySelector('[data-tool="back"]')?.addEventListener('click', goBack);
+  window.addEventListener('keydown', (e) => { if (e.key === 'ArrowLeft' && !(e.target.closest && e.target.closest('input,textarea'))) goBack(); });
   // Restart: everyone keeps their seat, money and hints reset, back to the lobby.
   root.querySelector('[data-tool="restart"]').addEventListener('click', () => {
     if (!confirm('Restart the game? Everyone goes back to the lobby with $100,000.')) return;
@@ -361,10 +392,12 @@ export function mountHost(root, opts = {}) {
     return 'lobby';
   }
 
-  async function startShow(from) {
+  async function startShow(from, auto) {
     S.running = true;
     const steps = S.content.steps;
-    if (from > 0) {
+    if (from > 0) S.started = true;
+    if (from > 0 && auto) playMusic(songAt(steps, from));
+    else if (from > 0) {
       // Browsers only play sound after a click, and "Play from here" reloads
       // the page, so ask for one click before the show resumes.
       const gate = document.createElement('button');
@@ -428,14 +461,14 @@ export function mountHost(root, opts = {}) {
   // How to play: a short cutscene, one rule per beat. Each caption rolls in,
   // holds long enough to read, then rolls off as the camera moves on.
   async function howto(step) {
-    stage(step, { name: 'howto' });
+    stage(step, { name: 'howto', beat: -1 });
     playMusic('lobby'); // the lobby song carries on through the how-to
     hud({ round: 'How to play' });
     const el = live('howto');
     const beats = [...el.querySelectorAll('.beat')];
-    // The whole demo fits in about 30 seconds. Each beat gets a share of the
-    // time left, weighted by how much text it has to read.
-    const TOTAL = 30000 / SPEED, MOVE = 1500 / SPEED;
+    // The whole demo fits in about 40 seconds (Seed: each rule 2-3 s longer).
+    // Each beat gets a share of the time left, weighted by how much text it has to read.
+    const TOTAL = 40000 / SPEED, MOVE = 1500 / SPEED;
     const t0 = clock.now();
     const chars = HOWTO_BEATS.map((b) => b.lines.join(' ').length);
     for (let i = 0; i < beats.length; i++) {
@@ -444,10 +477,11 @@ export function mountHost(root, opts = {}) {
       else await cam.whoosh(frameOf(`howto${i}`, 0), 1450);
       b.classList.remove('off');
       b.classList.add('on');
+      stage(step, { name: 'howto', beat: i }); // the phones show this rule now, not before
       sfx(i === beats.length - 1 ? 'sting' : 'pop');
       const left = TOTAL - (clock.now() - t0) - (beats.length - 1 - i) * MOVE;
       const share = chars[i] / chars.slice(i).reduce((x, y) => x + y, 0);
-      const hold = Math.max(2400 / SPEED, left * share) * SPEED;
+      const hold = Math.max(4900 / SPEED, left * share) * SPEED;
       const last = i === beats.length - 1;
       await waitNext(last ? 'Start round 1' : 'Next', hold);
       if (!last) { b.classList.add('off'); await wait(650); }
@@ -462,7 +496,9 @@ export function mountHost(root, opts = {}) {
     hud(); // the round title fills the screen
     $('.hud-join', root).hidden = true;
     live(`round${r}`);
+    sfx('riser', 0.9);
     await cam.fly(frameOf(`round${r}`, 0));
+    sfx('impact');
     sfx('sting');
     await wait(7000);
   }
@@ -511,16 +547,19 @@ export function mountHost(root, opts = {}) {
     await cam.fly(frameOf(`q${q.n}title`, 0.1));
     el.classList.add('show-title');
     sfx('pop');
-    await wait(5000);
+    await wait(8000); // Seed (Nov 24): the question holds exactly 8 seconds
     // Scenes 2-5: one mini cutscene per answer, always whooshing right.
     for (const { letter: L, text } of q.options.filter((o) => !o.all)) {
       stage(step, { name: 'watch', n: q.n, round: q.round, letter: L });
       const panel = el.querySelector(`.panel[data-letter="${L}"]`);
       sfx('whoosh');
+      const t0 = clock.now();
       const move = L === 'A' ? cam.ease(frameOf(`q${q.n}${L}`, 0.07), 900) : cam.whoosh(frameOf(`q${q.n}${L}`, 0.07), 620);
       setTimeout(() => panel.classList.add('in', 'play'), 180 / SPEED);
       await move;
-      await wait(CUT_FIXED || (L === 'A' ? 10000 : 8000));
+      // Seed (Nov 24): each option is on screen exactly 6 seconds, the camera move included.
+      const hold = CUT_FIXED || 6000;
+      await clock.sleep(Math.max(0, hold / SPEED - (clock.now() - t0)));
       panel.classList.remove('play');
     }
     // Scene 6: pull back to reveal everything, E underneath.
@@ -531,10 +570,19 @@ export function mountHost(root, opts = {}) {
     await wait(300);
   }
 
+  // The moment an answer lands: a hit, a little camera punch, and confetti when someone got it.
+  function hype(res) {
+    sfx('impact');
+    const vp = $('#viewport', root);
+    vp.classList.remove('punch'); void vp.offsetWidth; vp.classList.add('punch');
+    if (res.correctCount > 0) confetti($('#confetti', root), { duration: 2600 / SPEED, count: 90 });
+  }
+
   async function mcReveal(q, el, res) {
-    sfx('reveal');
-    await wait(900);
+    sfx('riser');
+    await wait(1100);
     el.classList.add('revealed');
+    hype(res);
     // "All of the above" right: only D gets the ring; A to C are marked as part of it.
     const allL = q.options.find((o) => o.all)?.letter;
     const allRight = res.correct === allL;
@@ -581,9 +629,10 @@ export function mountHost(root, opts = {}) {
   }
 
   async function foodReveal(q, el, res) {
-    sfx('reveal');
-    await wait(900);
+    sfx('riser');
+    await wait(1100);
     el.classList.add('revealed');
+    hype(res);
     el.querySelectorAll('.chip').forEach((c) => {
       const right = c.dataset.letter === res.correct;
       c.classList.toggle('right', right);
@@ -760,5 +809,11 @@ export function mountHost(root, opts = {}) {
     setTimeout(() => startShow(0), 0);
   }
 
-  return { state: S, cam, net, start: () => waiters.start && waiters.start() };
+  return {
+    state: S, cam, net,
+    start: () => waiters.start && waiters.start(),
+    pause: () => { togglePause(); return clock.paused; },
+    back: goBack,
+    canBack: () => S.started && S.step > 1,
+  };
 }

@@ -101,6 +101,32 @@ const synth = {
     mallet(1040, t + 0.03, 0.08, 0.2);
   },
   tick() { mallet(1760, ctx.currentTime, 0.07, 0.08); },
+  // Rising noise sweep: tension right before an answer is shown.
+  riser(dur = 1.1) {
+    const t = ctx.currentTime;
+    const src = noise(dur + 0.1);
+    const bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass'; bp.Q.value = 2;
+    bp.frequency.setValueAtTime(300, t);
+    bp.frequency.exponentialRampToValueAtTime(4200, t + dur);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.001, t);
+    g.gain.exponentialRampToValueAtTime(0.2, t + dur * 0.95);
+    g.gain.exponentialRampToValueAtTime(0.001, t + dur + 0.05);
+    src.connect(bp).connect(g).connect(master);
+    src.start(t);
+    tone(110, t, dur, { type: 'sawtooth', gain: 0.03, bend: 2, attack: dur * 0.9 });
+  },
+  // A soft, deep hit when the answer lands.
+  impact() {
+    const t = ctx.currentTime;
+    tone(80, t, 0.7, { type: 'sine', gain: 0.4, bend: 0.5, attack: 0.005 });
+    const src = noise(0.25);
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 900;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.25, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
+    src.connect(lp).connect(g).connect(master); src.start(t);
+  },
   lock() { const t = ctx.currentTime; mallet(880, t, 0.12, 0.15); mallet(1320, t + 0.06, 0.1, 0.2); },
   reveal() {
     const t = ctx.currentTime;

@@ -8,7 +8,9 @@ const f = (n) => Math.round(n * 10) / 10;
 // momentum: it eases into each turn, coasts, and settles like a real wheel.
 export function logoMark() {
   const src = (globalThis.HE_IMG && globalThis.HE_IMG.logo) || '/img/logo.webp';
-  return `<span class="he-logo"><img src="${src}" alt="" draggable="false"></span>`;
+  // Layers cut to the logo's own shape: a soft glow, a crisp rim with a light
+  // running around it, the logo, and a sheen that sweeps across its face.
+  return `<span class="he-logo" style="--logo:url('${src}')"><i class="glow"></i><i class="rim"></i><img src="${src}" alt="" draggable="false"><i class="sheen"></i></span>`;
 }
 
 export function logoMarkOld(size = 96) {
