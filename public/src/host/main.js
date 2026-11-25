@@ -3,12 +3,12 @@
 // and the art registry; this file is only timing and logic.
 
 import { connect as wsConnect } from '../net.js';
-import { Camera } from './camera.js';
+import { Camera, PACE } from './camera.js';
 import { buildWorld, zoneEl, HOWTO_BEATS } from './world.js';
 import { sfx, unlockAudio, setMuted, isMuted, sfxListeners } from '../sfx.js';
 import { confetti } from './confetti.js';
 import { clock } from './clock.js';
-import { playMusic, unlockMusic, musicLocked, holdMusic, muteMusic, preloadMusic, duckMusic } from '../music.js';
+import { playMusic, unlockMusic, musicLocked, holdMusic, muteMusic, preloadMusic, duckMusic, msToBar } from '../music.js';
 import qrcode from '../../vendor/qrcode.js';
 
 const $ = (sel, el = document) => el.querySelector(sel);
@@ -413,7 +413,8 @@ export function mountHost(root, opts = {}) {
       const s = steps[k];
       if (s.type === 'roundIntro') return `round${s.round}`;
       if (s.type === 'bonusIntro' || s.type === 'podium') return 'bonus';
-      if (s.type === 'lobby' || s.type === 'howto') return 'lobby';
+      if (s.type === 'howto') return 'howto';
+      if (s.type === 'lobby') return 'lobby';
     }
     return 'lobby';
   }
@@ -488,32 +489,60 @@ export function mountHost(root, opts = {}) {
 
   // How to play: a short cutscene, one rule per beat. Each caption rolls in,
   // holds long enough to read, then rolls off as the camera moves on.
+  // Start changes the song (the Kahoot-style lobby song gives way to Cerebral
+  // Sands) and, in the classroom, the rules follow a fixed plan on that song's
+  // bars (Seed: match the beat, never too long or too short). Each rule lands
+  // on a downbeat, 5 bars apart (about 10.7 s: 9 s to read, then the move),
+  // and the last one holds 4 bars, so the rules always take 20 bars, about
+  // 43 s. Space still skips ahead; the next rule then lands on the next half bar.
   async function howto(step) {
     stage(step, { name: 'howto', beat: -1 });
-    playMusic('lobby'); // the lobby song carries on through the how-to
+    const song = playMusic('howto');
     hud({ round: 'How to play' });
     const el = live('howto');
     const beats = [...el.querySelectorAll('.beat')];
-    // The whole demo fits in about 40 seconds (Seed: each rule 2-3 s longer).
-    // Each beat gets a share of the time left, weighted by how much text it has to read.
-    // Online (phones only, often solo): the rules are short, about 16 seconds.
-    const TOTAL = (MODE === 'online' ? 16000 : 40000) / SPEED, MOVE = 1500 / SPEED;
+    const onBars = MODE !== 'online' && SPEED === 1;
+    const BAR = 2137, EXIT = 650, GLIDE = 1000, LATE = 30; // LATE: a frame to paint the landing
+    await Promise.race([song, wait(400)]); // the new song is in place (or we go without it)
+    const bar = (minMs, every) => (onBars ? msToBar('howto', minMs, every) : null);
+    const cam_ = (ms) => ms / PACE; // camera moves run at PACE; these times are real ms
+    // Without the bars (online, a test speed, no music): the old timing.
+    // The whole demo fits in about 40 seconds; online (phones only, often solo) about 16.
+    const TOTAL = (MODE === 'online' ? 16000 : 40000) / SPEED, MOVE_MS = 1500 / SPEED;
     const t0 = clock.now();
     const chars = HOWTO_BEATS.map((b) => b.lines.join(' ').length);
+    let next = null, from = 0; // the next landing: ms after `from`, on the song's grid
     for (let i = 0; i < beats.length; i++) {
       const b = beats[i];
-      if (i === 0) await cam.fly(frameOf('howto0', 0), 2200);
-      else await cam.whoosh(frameOf(`howto${i}`, 0), 1450);
+      if (i === 0) {
+        const t = bar(1300);
+        if (t == null) await cam.fly(frameOf('howto0', 0), 2200);
+        else { const fly = Math.min(t, 1800) - LATE - 20; await wait(t - LATE - 20 - fly); await cam.fly(frameOf('howto0', 0), cam_(fly)); }
+      } else if (next != null) {
+        await cam.whoosh(frameOf(`howto${i}`, 0), cam_(Math.max(600, next - (clock.now() - from) - LATE)));
+      } else await cam.whoosh(frameOf(`howto${i}`, 0), 1450);
       b.classList.remove('off');
       b.classList.add('on');
       stage(step, { name: 'howto', beat: i }); // the phones show this rule now, not before
-      if (i === beats.length - 1) sfx('ready'); else sfx('rule', i);
-      const left = TOTAL - (clock.now() - t0) - (beats.length - 1 - i) * MOVE;
-      const share = chars[i] / chars.slice(i).reduce((x, y) => x + y, 0);
-      const beatMs = Math.max((MODE === 'online' ? 3000 : 4900) / SPEED, left * share) * SPEED;
       const last = i === beats.length - 1;
+      if (last) sfx('ready'); else sfx('rule', i);
+      // On the bars: hold so the exit and the move end exactly on the downbeat 5 bars on.
+      let beatMs = bar(last ? 4 * BAR - 300 : 5 * BAR - 300);
+      if (beatMs != null && !last) beatMs -= EXIT + GLIDE;
+      if (beatMs == null) {
+        const left = TOTAL - (clock.now() - t0) - (beats.length - 1 - i) * MOVE_MS;
+        const share = chars[i] / chars.slice(i).reduce((x, y) => x + y, 0);
+        beatMs = Math.max((MODE === 'online' ? 3000 : 4900) / SPEED, left * share) * SPEED;
+      }
       await waitNext(last ? 'Start round 1' : 'Next', beatMs);
-      if (!last) { b.classList.add('off'); await wait(650); }
+      if (!last) {
+        from = clock.now();
+        // the planned bar, or after Space the first half bar the move can reach
+        next = bar(EXIT + GLIDE - 120) ?? null;
+        if (next != null && next > EXIT + GLIDE + 400) next = bar(EXIT + 830, 2);
+        b.classList.add('off');
+        await wait(EXIT);
+      }
     }
   }
 

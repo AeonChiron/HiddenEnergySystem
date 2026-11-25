@@ -1,5 +1,6 @@
 // Background music for the big screen. One track per part of the show:
-//   lobby, howto, round1, round2, round3, bonus, winners
+//   lobby (the Kahoot-style song), howto (Cerebral Sands, under the rules),
+//   round1, round2, round3, bonus, winners
 // Files live in /music/<slot>.mp3. They are pre-cut so each loops with no
 // seam (the tail is blended into the head) and levelled to the same loudness.
 // Playback uses Web Audio so loops are gapless; parts crossfade, and the
@@ -17,7 +18,6 @@ const curve = (from, to) => Float32Array.from({ length: 64 }, (_, i) => {
 const base = () => globalThis.HE_MUSIC_BASE ?? (globalThis.HE_IMG ? null : '/music/');
 
 let ctx = null, out = null, duck = null;
-const bufs = {};
 let cur = null;      // { slot, src, gain }
 let wanted = null;   // latest slot asked for
 let muted = false, held = false;
@@ -34,22 +34,47 @@ function ensure() {
   return true;
 }
 
-// A track that fails to download (a slow server waking up) is tried again,
-// up to 4 times, and a failure is never remembered, so the next call retries.
+// Loading. A decoded song takes about 40 MB of memory (2 minutes of
+// uncompressed stereo), all seven about 320 MB, too much for a phone running
+// the online game or an old school laptop. So the small mp3 files download
+// one after another in show order (the lobby song first, so it starts soonest)
+// and stay as bytes, and only the song playing and the next one are decoded.
+// A failed download (a slow server waking up) is tried again, up to 4 times,
+// and a failure is never remembered, so the next call retries.
+const raw = {};  // slot -> Promise<ArrayBuffer|null>, the mp3 bytes
+const bufs = {}; // slot -> Promise<AudioBuffer|null>, decoded: only the ones near now
 function fetchTrack(slot, tries = 4) {
   return fetch(`${base()}${slot}.mp3`)
     .then((r) => { if (!r.ok) throw new Error(String(r.status)); return r.arrayBuffer(); })
-    .then((b) => new Promise((res, rej) => ctx.decodeAudioData(b, res, rej)))
     .catch((e) => (tries > 1 ? new Promise((res) => setTimeout(res, 1500)).then(() => fetchTrack(slot, tries - 1)) : Promise.reject(e)));
+}
+function bytes(slot) {
+  if (!(slot in raw)) raw[slot] = fetchTrack(slot).catch(() => { delete raw[slot]; return null; });
+  return raw[slot];
 }
 function load(slot) {
   if (!(slot in bufs)) {
-    bufs[slot] = fetchTrack(slot).catch(() => { delete bufs[slot]; return null; });
+    bufs[slot] = bytes(slot)
+      .then((b) => b && new Promise((res, rej) => ctx.decodeAudioData(b.slice(0), res, rej)))
+      .catch(() => null)
+      .then((buf) => { if (!buf) delete bufs[slot]; return buf; });
   }
   return bufs[slot];
 }
+// Keep `slot` and the song after it decoded; let the rest go (a song still
+// fading out keeps its own copy until it stops).
+function keepNear(slot) {
+  const next = SLOTS[SLOTS.indexOf(slot) + 1];
+  if (next) load(next);
+  for (const s of SLOTS) if (s !== slot && s !== next) delete bufs[s];
+}
 
-export function preloadMusic() { if (ensure()) { SLOTS.forEach(load); loadGrid(); } }
+export function preloadMusic() {
+  if (!ensure()) return;
+  loadGrid();
+  load(SLOTS[0]);
+  SLOTS.reduce((p, s) => p.then(() => bytes(s)), Promise.resolve());
+}
 
 // --- Transitions, the way a DJ mixes ---------------------------------------
 // Two full tracks overlapping for seconds sounds muddy: two basslines and two
@@ -94,8 +119,8 @@ export function startVoice(ctx, dest, buf, { loop = true, at = ctx.currentTime, 
 // up to that beat so its first downbeat lands exactly there, and let the old
 // track echo out in tempo instead of stopping. A soft swell rises into the
 // switch and hides the seam. beats.json holds every track's beat times.
-let grid = null;
-const loadGrid = () => grid || (grid = fetch(`${base()}beats.json`).then((r) => (r.ok ? r.json() : {})).catch(() => ({})));
+let grid = null, gridData = null;
+const loadGrid = () => grid || (grid = fetch(`${base()}beats.json`).then((r) => (r.ok ? r.json() : {})).catch(() => ({})).then((g) => (gridData = g)));
 
 const PREROLL = 0.8; // seconds of the new track's pickup allowed before the switch
 const SWAP = 1.8;    // seconds for the new track to open fully after the beat
@@ -153,6 +178,7 @@ export async function playMusic(slot) {
   wanted = slot;
   const [buf, g] = await Promise.all([load(slot), loadGrid()]);
   if (wanted !== slot) return 0;
+  keepNear(slot);
   const old = cur;
   cur = null;
   const now = ctx.currentTime;
@@ -220,6 +246,28 @@ export function crossTo(ctx, dest, old, slot, buf, gin, gout, now = ctx.currentT
   hp.setValueAtTime(MIX.hpStart, T + 0.15);
   hp.exponentialRampToValueAtTime(20, T + SWAP + 0.3);
   return { slot, startAt: start - offset, T, ...v };
+}
+
+// --- Landing the picture on the bars ------------------------------------------
+// Which beat in beats.json is the first downbeat (the kick that starts a bar),
+// measured from each song's low end. Bars are 4 beats.
+const DOWNBEAT = { howto: 1 };
+// Milliseconds from now until the first bar line of `slot` that is at least
+// `minMs` away (every = 2: half bars too), or null when that song isn't the one playing (still loading,
+// muted by the browser, paused): callers then fall back to fixed times.
+export function msToBar(slot, minMs = 0, every = 4) {
+  const g = gridData?.[slot];
+  if (!ctx || !cur || cur.slot !== slot || ctx.state !== 'running' || !g || !g.beats.length || held) return null;
+  const raw = ctx.currentTime - cur.startAt;
+  const pos = raw < g.dur ? raw : raw % g.dur;
+  const b = g.beats, d = DOWNBEAT[slot] ?? 0;
+  for (let lap = 0; lap < 3; lap++) {
+    for (let i = d % every; i < b.length; i += every) {
+      const ms = (b[i] + lap * g.dur - pos) * 1000;
+      if (ms >= minMs) return ms;
+    }
+  }
+  return null;
 }
 
 // Sidechain: sound effects push the music down for a moment so they read

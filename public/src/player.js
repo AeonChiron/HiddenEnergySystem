@@ -355,6 +355,18 @@ export function mountPlayer(root, opts = {}) {
     root.dataset.view = state.view;
     // "fresh" plays the entrance only when the screen changes, not on every tap.
     const fresh = prevView !== state.view;
+    // On a screen change the old screen eases out (a short blur and lift)
+    // while the new one rises in, instead of a hard swap.
+    let leaving = null;
+    const oldMain = fresh && prevView ? root.querySelector('main.pv') : null;
+    if (oldMain && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      const r = oldMain.getBoundingClientRect();
+      leaving = oldMain.cloneNode(true);
+      leaving.classList.add('pv-out');
+      leaving.setAttribute('aria-hidden', 'true');
+      leaving.querySelectorAll('[id]').forEach((n) => n.removeAttribute('id'));
+      Object.assign(leaving.style, { position: 'fixed', left: `${r.left}px`, top: `${r.top}px`, width: `${r.width}px`, height: `${r.height}px`, margin: '0' });
+    }
     root.className = `he-player v-${state.view}${fresh ? ' fresh' : ''}`;
     root.innerHTML = `
       ${state.me ? header() : ''}
@@ -362,6 +374,7 @@ export function mountPlayer(root, opts = {}) {
       <main class="pv">${body()}</main>
       <div class="net" role="status" aria-live="polite"></div>
       <div class="toast" role="status" aria-live="polite"></div>`;
+    if (leaving) { root.appendChild(leaving); leaving.addEventListener('animationend', () => leaving.remove(), { once: true }); setTimeout(() => leaving.remove(), 600); }
     bind();
     renderStatus();
     if (state.view === 'answer') tick();

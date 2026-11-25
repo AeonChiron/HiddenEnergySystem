@@ -17,34 +17,15 @@ let master = null;
 // A variant is [pack, cue, volume, rate]. A function gets the call's argument.
 const R = (lo, hi) => lo + Math.random() * (hi - lo);
 const CUES = {
-  // lobby: each new player rings a little higher than the last
-  join: (n = 1) => [['glass', 'connect', 0.65, 1 + Math.min(n, 24) * 0.012], ['glass', 'receive', 0.6, 1 + Math.min(n, 24) * 0.012], ['glass', 'reaction', 0.6, 1 + Math.min(n, 24) * 0.012]],
-  start: [['cinematic', 'start', 0.9]],
-  // how to play: the rules build upward, the last one resolves
-  rule: (i = 0) => [['glass', 'progress-step', 0.7, 1 + i * 0.07], ['glass', 'open', 0.6, 1 + i * 0.05]],
-  ready: [['cinematic', 'complete', 0.9]],
-  round: (r = 1) => [['cinematic', 'level-up', 0.9, [0.94, 1, 1.07][(r - 1) % 3] || 1]],
-  title: [['glass', 'open', 0.7], ['glass', 'notification', 0.7], ['glass', 'info', 0.7], ['glass', 'expand', 0.7]],
-  // the answer options: A, B and C each move on with their own sound
-  option: (i = 0) => [[['glass', 'swipe', 0.45, 0.96], ['glass', 'forward', 0.5, 1], ['glass', 'swipe', 0.45, 1.07]][i % 3], ['glass', 'skip-next', 0.4, 1 + i * 0.04]],
-  meal: [['cinematic', 'open', 0.75], ['cinematic', 'expand', 0.75]],
-  callout: [['glass', 'snap', 0.6], ['glass', 'check', 0.6]],
-  discovery: [['cinematic', 'unlock', 0.85], ['cinematic', 'checkpoint', 0.85]],
-  bonusIntro: [['cinematic', 'wake', 0.9]],
-  // the last five seconds climb in pitch
-  tick: (s = 5) => [['glass', 'progress-step', 0.5, 1 + (5 - s) * 0.09]],
   allin: [['glass', 'complete', 0.7], ['glass', 'check', 0.7]],
   // a reveal sounds bigger when more people got it
   correct: (share = 0.5) => (share >= 0.8 ? [['cinematic', 'achievement', 0.9], ['cinematic', 'level-up', 0.85]] : [['cinematic', 'success', 0.9], ['cinematic', 'reward', 0.85]]),
   wrong: [['cinematic', 'error', 0.6], ['cinematic', 'blocked', 0.6]],
   reward: (i = 0) => [['glass', 'reward', 0.6, 1 + i * 0.05]],
-  line: (i = 0) => [['glass', 'info', 0.55, 1 + i * 0.08], ['glass', 'progress-step', 0.5, 1 + i * 0.08]],
   place: (i = 0) => [['cinematic', 'badge', 0.85, [1.06, 1, 0.94][i] || 1]],
   fanfare: [['cinematic', 'achievement', 1]],
   bonus: [['cinematic', 'bonus', 0.9]],
   streak: [['arcade', 'streak', 0.6]],
-  next: [['glass', 'forward', 0.4], ['glass', 'skip-next', 0.4]],
-  back: [['glass', 'back', 0.6]],
   pause: [['glass', 'pause', 0.6]],
   play: [['glass', 'play', 0.6]],
   // phones
@@ -58,7 +39,95 @@ const CUES = {
   lose: [['glass', 'error', 0.55], ['glass', 'blocked', 0.55]],
 };
 // These keep their own synth sound and add a UI SFX layer on top.
-const LAYERS = { impact: [['cinematic', 'drop', 0.8], ['cinematic', 'snap', 0.75]] };
+const LAYERS = {};
+
+// --- Air: whooshes, gusts, breezes (Seed, Nov 25) ------------------------
+// Transitions use moving air, never notes, so they don't clash with the music.
+// Each call draws fresh values (length, band, sweep, direction, texture), so
+// no two are ever the same, and each moment has its own shape:
+//   swish  short and bright (options, Next, Back)
+//   whoosh a camera move going past
+//   breeze a soft swell as something settles in (a rule, a title)
+//   gust   a big wide sweep with a low rumble (round, discovery, bonus)
+//   puff   a tiny breath (a player joins, a callout, a line)
+//   tick   a dry clock tick in the last seconds, tick and tock
+let noiseBuf = null;
+function noiseSrc() {
+  if (!noiseBuf) {
+    noiseBuf = ctx.createBuffer(2, ctx.sampleRate * 4, ctx.sampleRate);
+    for (let c = 0; c < 2; c++) { const d = noiseBuf.getChannelData(c); let b = 0; for (let i = 0; i < d.length; i++) { const w = Math.random() * 2 - 1; b = 0.97 * b + 0.03 * w; d[i] = w * 0.55 + b * 3; } }
+  }
+  const src = ctx.createBufferSource(); src.buffer = noiseBuf; src.loop = true; return src;
+}
+// One stroke of air: a noise band sweeping lo -> hi (at `peak` of the way) -> end.
+const AIR_LEVEL = 3.2; // a filtered noise band is quiet; this sits it level with the other effects
+function air({ dur, lo, hi, end = lo, q = 0.8, gain = 0.25, peak = 0.45, pan = 0, at = 0, type = 'bandpass' }) {
+  const t = ctx.currentTime + at;
+  gain *= AIR_LEVEL;
+  const src = noiseSrc();
+  const f = ctx.createBiquadFilter(); f.type = type; f.Q.value = q;
+  f.frequency.setValueAtTime(lo, t);
+  f.frequency.exponentialRampToValueAtTime(hi, t + dur * peak);
+  f.frequency.exponentialRampToValueAtTime(end, t + dur);
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(gain, t + dur * peak);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  let node = src.connect(f).connect(g);
+  if (pan && ctx.createStereoPanner) { const p = ctx.createStereoPanner(); p.pan.setValueAtTime(-pan, t); p.pan.linearRampToValueAtTime(pan, t + dur); node = node.connect(p); }
+  node.connect(master);
+  src.start(t, Math.random() * 3.5); src.stop(t + dur + 0.05);
+}
+const side = () => (Math.random() < 0.5 ? -1 : 1);
+const AIR = {
+  swish(dir = side(), k = 1) {
+    const d = R(0.26, 0.4) * k;
+    air({ dur: d, lo: R(700, 1100), hi: R(3800, 6000), end: R(1200, 2000), q: R(0.9, 1.5), gain: 0.2, peak: R(0.35, 0.5), pan: 0.6 * dir });
+    air({ dur: d * 0.8, lo: 5000, hi: 9000, end: 6000, type: 'highpass', q: 0.5, gain: 0.05, pan: 0.6 * dir });
+  },
+  whoosh(dir = side(), k = 1) {
+    const d = R(0.55, 0.8) * k;
+    air({ dur: d, lo: R(260, 420), hi: R(1800, 2800), end: R(450, 700), q: R(0.7, 1.1), gain: 0.3, peak: R(0.4, 0.55), pan: 0.7 * dir });
+    air({ dur: d, lo: 3000, hi: 7000, end: 4000, type: 'highpass', q: 0.4, gain: 0.06, peak: 0.5, pan: 0.7 * dir });
+  },
+  breeze(k = 1) {
+    const d = R(0.9, 1.25) * k;
+    air({ dur: d, lo: R(350, 550), hi: R(1500, 2400), end: R(600, 900), q: R(0.5, 0.8), gain: 0.16, peak: R(0.55, 0.7), pan: 0.25 * side() });
+    air({ dur: d * 0.9, lo: 4000, hi: 8000, end: 5000, type: 'highpass', q: 0.4, gain: 0.04, peak: 0.65 });
+  },
+  gust(k = 1) {
+    const d = R(1.6, 2.1) * k;
+    air({ dur: d, lo: R(180, 260), hi: R(2800, 4000), end: R(300, 450), q: R(0.6, 0.9), gain: 0.32, peak: R(0.5, 0.62), pan: 0.5 * side() });
+    air({ dur: d * 1.1, lo: 60, hi: 160, end: 70, type: 'lowpass', q: 0.7, gain: 0.35, peak: 0.55 });
+    air({ dur: d * 0.9, lo: 5000, hi: 10000, end: 6000, type: 'highpass', q: 0.4, gain: 0.05, peak: 0.6 });
+  },
+  puff(k = 1) {
+    air({ dur: R(0.14, 0.22), lo: R(900, 1400) * k, hi: R(2600, 3800) * k, end: R(1500, 2000) * k, q: R(1.2, 2), gain: 0.22, peak: 0.3, pan: 0.3 * side() });
+  },
+  tick(s = 5) {
+    const tock = s % 2 === 0;
+    air({ dur: 0.05, lo: tock ? 2600 : 3800, hi: tock ? 2800 : 4200, q: 3, gain: 0.2 + (5 - s) * 0.05, peak: 0.08, type: 'bandpass' });
+  },
+};
+// The moments that use air instead of notes.
+const AIRED = {
+  join: (n = 1) => AIR.puff(1 + Math.min(n, 24) * 0.02), // each new player a little brighter
+  start: () => AIR.gust(0.9),
+  rule: () => AIR.breeze(),
+  ready: () => AIR.breeze(1.4),
+  round: () => AIR.gust(1.1),
+  title: () => AIR.breeze(0.8),
+  option: (i = 0) => AIR.swish(i % 2 ? -1 : 1),
+  meal: () => AIR.swish(side(), 1.3),
+  callout: () => AIR.puff(),
+  discovery: () => AIR.gust(),
+  bonusIntro: () => AIR.gust(1.25),
+  tick: (s) => AIR.tick(s),
+  line: (i = 0) => AIR.puff(1 + i * 0.06),
+  next: () => AIR.swish(1, 0.8),
+  back: () => AIR.swish(-1, 0.8),
+  whoosh: (pan) => AIR.whoosh(typeof pan === 'number' ? Math.sign(pan) || 1 : side()),
+};
 
 const lastPick = {};
 function pickVariant(name, arg) {
@@ -204,7 +273,6 @@ const synth = {
     g.gain.exponentialRampToValueAtTime(0.001, t + dur + 0.05);
     src.connect(bp).connect(g).connect(master);
     src.start(t);
-    tone(110, t, dur, { type: 'sawtooth', gain: 0.03, bend: 2, attack: dur * 0.9 });
   },
   // A soft, deep hit when the answer lands.
   impact() {
@@ -274,6 +342,7 @@ export function sfx(name, arg) {
   if (ctx.state === 'suspended') ctx.resume();
   try {
     if (buffers[name]) return playBuffer(name);
+    if (AIRED[name]) return AIRED[name](arg);
     if (CUES[name] && playCue(pickVariant(name, arg))) return;
     if (LAYERS[name]) playCue(pickVariant(name, arg));
     synth[name] && synth[name](arg);

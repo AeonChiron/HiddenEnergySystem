@@ -8,6 +8,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
+import zlib from 'node:zlib';
 import { fileURLToPath } from 'node:url';
 import { WebSocketServer } from 'ws';
 import { Hub } from './shared/engine.js';
@@ -64,11 +65,35 @@ const server = http.createServer((req, res) => {
     if (err || !st.isFile()) return send(res, 404, 'Not found');
     const ext = path.extname(file).toLowerCase();
     const cache = ext === '.html' ? 'no-cache' : (/\.(woff2|png|jpe?g|webp|mp3|wav|ogg)$/.test(ext) ? 'public, max-age=604800' : 'no-cache');
-    res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream', 'Content-Length': st.size, 'Cache-Control': cache, 'X-Content-Type-Options': 'nosniff' });
+    // A reload (the big screen reloads after Back; phones rejoin) asks "still the
+    // same?" and gets a tiny 304 instead of the whole file again.
+    const etag = `W/"${st.size.toString(36)}-${Math.floor(st.mtimeMs).toString(36)}"`;
+    const head = { 'Content-Type': MIME[ext] || 'application/octet-stream', 'Cache-Control': cache, ETag: etag, 'X-Content-Type-Options': 'nosniff', ...(TEXT.test(ext) ? { Vary: 'Accept-Encoding' } : {}) };
+    if (req.headers['if-none-match'] === etag) { res.writeHead(304, head); return res.end(); }
+    // Text files go out gzipped (about a third of the size), made once and kept.
+    if (TEXT.test(ext) && /\bgzip\b/.test(req.headers['accept-encoding'] || '')) {
+      return gzipped(file, etag, (gz) => {
+        if (!gz) return send(res, 500, 'Error');
+        res.writeHead(200, { ...head, 'Content-Encoding': 'gzip', 'Content-Length': gz.length });
+        res.end(req.method === 'HEAD' ? undefined : gz);
+      });
+    }
+    res.writeHead(200, { ...head, 'Content-Length': st.size });
     if (req.method === 'HEAD') return res.end();
     fs.createReadStream(file).pipe(res);
   });
 });
+
+const TEXT = /^\.(html|js|mjs|css|json|svg)$/;
+const gzCache = new Map(); // file -> { etag, gz }
+function gzipped(file, etag, cb) {
+  const hit = gzCache.get(file);
+  if (hit && hit.etag === etag) return cb(hit.gz);
+  fs.readFile(file, (err, buf) => {
+    if (err) return cb(null);
+    zlib.gzip(buf, { level: 9 }, (e, gz) => { if (e) return cb(null); gzCache.set(file, { etag, gz }); cb(gz); });
+  });
+}
 
 const hub = new Hub({ answerSeconds: ANSWER_SECONDS });
 const wss = new WebSocketServer({ server, path: '/ws', maxPayload: 8 * 1024 });

@@ -3,7 +3,7 @@ import { clock } from './clock.js';
 // 1920x1080 reference; the stage scales to whatever screen the host has.
 //   cam.set({x, y, z})               jump
 // PACE: Seed asked for camera moves about 75% faster (Nov 23).
-const PACE = 1 / 1.75;
+export const PACE = 1 / 1.75;
 //   await cam.whoosh({x, y, z}, ms)  fast horizontal move with a small zoom dip
 //   await cam.fly({x, y, z}, ms)     smooth zoom-out / travel / zoom-in arc
 
@@ -95,12 +95,22 @@ export class Camera {
   whoosh(to, ms = 620, dip = 0.86) {
     const a = { ...this.pos };
     const b = { ...a, ...to };
-    return this.tween((t) => {
+    // Smear only on a fast move: a light blur that peaks while the camera is
+    // fastest and is gone before it lands (never on reduced motion).
+    const travel = Math.hypot(b.x - a.x, b.y - a.y) * a.z * this.fit;
+    const smear = travel > 500 && !matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (smear) this.world.classList.add('smear');
+    const done = this.tween((t) => {
       const e = ease.launch(t);
       const bump = Math.sin(Math.PI * Math.min(1, e * 1.15));
       const z = lerpLog(a.z, b.z, e) * (1 - (1 - dip) * bump);
+      if (smear) {
+        const v = Math.max(0, 1 - Math.abs(e - 0.45) / 0.4); // peaks mid-move
+        this.world.style.filter = v > 0.05 && t < 0.9 ? `blur(${(2.6 * v * v).toFixed(2)}px)` : '';
+      }
       return { x: a.x + (b.x - a.x) * e, y: a.y + (b.y - a.y) * e, z };
     }, ms);
+    return done.then(() => { this.world.style.filter = ''; this.world.classList.remove('smear'); });
   }
 
   // Smooth pan + zoom (van Wijk & Nuij). Long trips zoom out on the way.

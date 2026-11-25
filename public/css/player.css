@@ -208,3 +208,12 @@ main [tabindex="-1"]:focus { outline: none; }
 .streak.hot { background: linear-gradient(90deg, var(--ochre), #e8823a, var(--ochre)); background-size: 200% 100%; animation: ph-pop .55s .3s var(--spring-pop) both, hot-shine 1.6s linear infinite; }
 @keyframes hot-shine { to { background-position: -200% 0; } }
 @media (prefers-reduced-motion: reduce) { .fresh .res.no .mark, .streak.hot { animation: none; } }
+
+/* Screen changes: the old screen eases out under the new one */
+.pv-out { pointer-events: none; z-index: 0; animation: pv-out .26s cubic-bezier(.4, 0, .6, 1) both; }
+.pv-out * { animation: none !important; }
+@keyframes pv-out { to { opacity: 0; transform: translateY(-10px) scale(.985); filter: blur(8px); } }
+/* the new screen waits a beat so the two never read at once */
+.fresh main.pv { position: relative; z-index: 1; animation: pv-in .3s .12s var(--ease-out) both; }
+@keyframes pv-in { from { opacity: 0; filter: blur(6px); } }
+@media (prefers-reduced-motion: reduce) { .fresh main.pv { animation: none; } }
