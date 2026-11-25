@@ -224,7 +224,7 @@ export function crossTo(ctx, dest, old, slot, buf, gin, gout, now = ctx.currentT
 
 // Sidechain: sound effects push the music down for a moment so they read
 // clearly, then the music swells back.
-const DUCK = { riser: [0.6, 1.6], impact: [0.45, 1.3], sting: [0.45, 1.4], reveal: [0.5, 1.2], correct: [0.5, 1.2], wrong: [0.55, 1.0], fanfare: [0.4, 2.2], drumroll: [0.55, 1.8], lock: [0.75, 0.5] };
+const DUCK = { badge: [0.5, 1.2], bonus: [0.45, 1.6], streak: [0.6, 1], allin: [0.7, 0.8], riser: [0.6, 1.6], impact: [0.45, 1.3], sting: [0.45, 1.4], reveal: [0.5, 1.2], correct: [0.5, 1.2], wrong: [0.55, 1.0], fanfare: [0.4, 2.2], drumroll: [0.55, 1.8], lock: [0.75, 0.5] };
 export function duckMusic(name) {
   const d = DUCK[name];
   if (!d || !duck) return;

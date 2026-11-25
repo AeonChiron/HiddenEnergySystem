@@ -2,8 +2,96 @@
 // offline with no audio files. Replaceable later with recorded sounds:
 // put files in /sfx/<name>.mp3 and they are used instead.
 
+import { createUISFX } from '../vendor/uisfx.js';
+
 let ctx = null;
 let master = null;
+
+// Sound design (Seed, Nov 25): cues from UI SFX (MIT code, CC0 sounds, made in
+// the browser, no files). Small moments use the crisp "glass" pack, the big
+// moments the deep "cinematic" pack, and the streak gets an "arcade" sparkle.
+// Seed: no sound should repeat exactly. Each moment has its own sound, picks
+// among a few variants without playing the same one twice in a row, follows
+// the context (pitch climbs as the clock runs out, as rules build, as players
+// join), and gets a slight random pitch so even repeats are never identical.
+// A variant is [pack, cue, volume, rate]. A function gets the call's argument.
+const R = (lo, hi) => lo + Math.random() * (hi - lo);
+const CUES = {
+  // lobby: each new player rings a little higher than the last
+  join: (n = 1) => [['glass', 'connect', 0.65, 1 + Math.min(n, 24) * 0.012], ['glass', 'receive', 0.6, 1 + Math.min(n, 24) * 0.012], ['glass', 'reaction', 0.6, 1 + Math.min(n, 24) * 0.012]],
+  start: [['cinematic', 'start', 0.9]],
+  // how to play: the rules build upward, the last one resolves
+  rule: (i = 0) => [['glass', 'progress-step', 0.7, 1 + i * 0.07], ['glass', 'open', 0.6, 1 + i * 0.05]],
+  ready: [['cinematic', 'complete', 0.9]],
+  round: (r = 1) => [['cinematic', 'level-up', 0.9, [0.94, 1, 1.07][(r - 1) % 3] || 1]],
+  title: [['glass', 'open', 0.7], ['glass', 'notification', 0.7], ['glass', 'info', 0.7], ['glass', 'expand', 0.7]],
+  // the answer options: A, B and C each move on with their own sound
+  option: (i = 0) => [[['glass', 'swipe', 0.45, 0.96], ['glass', 'forward', 0.5, 1], ['glass', 'swipe', 0.45, 1.07]][i % 3], ['glass', 'skip-next', 0.4, 1 + i * 0.04]],
+  meal: [['cinematic', 'open', 0.75], ['cinematic', 'expand', 0.75]],
+  callout: [['glass', 'snap', 0.6], ['glass', 'check', 0.6]],
+  discovery: [['cinematic', 'unlock', 0.85], ['cinematic', 'checkpoint', 0.85]],
+  bonusIntro: [['cinematic', 'wake', 0.9]],
+  // the last five seconds climb in pitch
+  tick: (s = 5) => [['glass', 'progress-step', 0.5, 1 + (5 - s) * 0.09]],
+  allin: [['glass', 'complete', 0.7], ['glass', 'check', 0.7]],
+  // a reveal sounds bigger when more people got it
+  correct: (share = 0.5) => (share >= 0.8 ? [['cinematic', 'achievement', 0.9], ['cinematic', 'level-up', 0.85]] : [['cinematic', 'success', 0.9], ['cinematic', 'reward', 0.85]]),
+  wrong: [['cinematic', 'error', 0.6], ['cinematic', 'blocked', 0.6]],
+  reward: (i = 0) => [['glass', 'reward', 0.6, 1 + i * 0.05]],
+  line: (i = 0) => [['glass', 'info', 0.55, 1 + i * 0.08], ['glass', 'progress-step', 0.5, 1 + i * 0.08]],
+  place: (i = 0) => [['cinematic', 'badge', 0.85, [1.06, 1, 0.94][i] || 1]],
+  fanfare: [['cinematic', 'achievement', 1]],
+  bonus: [['cinematic', 'bonus', 0.9]],
+  streak: [['arcade', 'streak', 0.6]],
+  next: [['glass', 'forward', 0.4], ['glass', 'skip-next', 0.4]],
+  back: [['glass', 'back', 0.6]],
+  pause: [['glass', 'pause', 0.6]],
+  play: [['glass', 'play', 0.6]],
+  // phones
+  notify: [['glass', 'notification', 0.7], ['glass', 'mention', 0.7]],
+  select: (i = 0) => [['glass', 'select', 0.6, 0.95 + i * 0.05]],
+  bet: (i = 0) => [['glass', 'toggle-on', 0.5, 0.92 + i * 0.06]],
+  lock: [['glass', 'lock', 0.7]],
+  hint: [['glass', 'unlock', 0.7]],
+  timeup: [['glass', 'warning', 0.6]],
+  win: [['cinematic', 'success', 0.85], ['cinematic', 'reward', 0.85]],
+  lose: [['glass', 'error', 0.55], ['glass', 'blocked', 0.55]],
+};
+// These keep their own synth sound and add a UI SFX layer on top.
+const LAYERS = { impact: [['cinematic', 'drop', 0.8], ['cinematic', 'snap', 0.75]] };
+
+const lastPick = {};
+function pickVariant(name, arg) {
+  const def = CUES[name] || LAYERS[name];
+  const list = typeof def === 'function' ? def(arg) : def;
+  if (!list || !list.length) return null;
+  let i = Math.floor(Math.random() * list.length);
+  if (list.length > 1 && i === lastPick[name]) i = (i + 1) % list.length;
+  lastPick[name] = i;
+  return list[i];
+}
+
+let packs = null;
+function players() {
+  if (!packs && ctx) {
+    packs = {};
+    for (const p of ['glass', 'cinematic', 'arcade']) packs[p] = createUISFX({ pack: p, context: ctx, maxVoices: 6 });
+    // Render every cue now, so the first play of each is instant.
+    const want = {};
+    for (const def of [...Object.values(CUES), ...Object.values(LAYERS)]) {
+      const lists = typeof def === 'function' ? [def(0), def(1), def(2)] : [def];
+      for (const l of lists) for (const [p, c] of l) (want[p] ||= new Set()).add(c);
+    }
+    for (const p in want) want[p] = [...want[p]];
+    for (const p in want) packs[p].preload(want[p]).catch(() => {});
+  }
+  return packs;
+}
+function playCue(v) {
+  if (!v) return false;
+  const [pack, cue, volume, rate = 1] = v;
+  try { return !!players()?.[pack]?.play(cue, { volume, playbackRate: rate * R(0.97, 1.03), retrigger: 'overlap' }); } catch { return false; }
+}
 let muted = false;
 const buffers = {};
 
@@ -19,11 +107,12 @@ export function unlockAudio() {
     comp.ratio.value = 4;
     master.connect(comp).connect(ctx.destination);
     preload();
+    players();
   }
   if (ctx.state === 'suspended') ctx.resume();
 }
 
-export function setMuted(m) { muted = m; if (master) master.gain.value = m ? 0 : 0.8; }
+export function setMuted(m) { muted = m; if (master) master.gain.value = m ? 0 : 0.8; if (packs) Object.values(packs).forEach((p) => p.setEnabled(!m)); }
 export function isMuted() { return muted; }
 
 // Optional recorded sounds: /sfx/manifest.json lists names, e.g. ["whoosh","pop"].
@@ -185,6 +274,8 @@ export function sfx(name, arg) {
   if (ctx.state === 'suspended') ctx.resume();
   try {
     if (buffers[name]) return playBuffer(name);
+    if (CUES[name] && playCue(pickVariant(name, arg))) return;
+    if (LAYERS[name]) playCue(pickVariant(name, arg));
     synth[name] && synth[name](arg);
   } catch {}
 }

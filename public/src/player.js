@@ -3,6 +3,7 @@
 
 import { connect as wsConnect } from './net.js';
 import { logoMark } from './art/world.js';
+import { sfx, unlockAudio } from './sfx.js';
 
 const $ = (sel, el = document) => el.querySelector(sel);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -74,6 +75,7 @@ export function mountPlayer(root, opts = {}) {
         state.me = { id: m.id, name: m.name, color: m.color, score: m.score, hintsLeft: m.hintsLeft, code: m.code };
         if (m.mode) state.mode = m.mode;
         if (m.token) store.set(`he:token:${m.code}`, m.token);
+        sfx('join', 1);
         state.code = m.code;
         if (!m.rejoined || state.view === 'join') state.view = 'lobby';
         break;
@@ -85,6 +87,7 @@ export function mountPlayer(root, opts = {}) {
         state.view = 'join';
         break;
       case 'stage':
+        if (m.stage.name === 'howto' && m.stage.beat >= 0 && m.stage.beat !== state.stage?.beat && !state.creator) sfx('rule', m.stage.beat);
         state.stage = m.stage;
         if (m.stage.mode) state.mode = m.stage.mode;
         if (!['decision', 'reveal'].includes(m.stage.name)) { state.result = null; }
@@ -97,6 +100,7 @@ export function mountPlayer(root, opts = {}) {
         if (state.open && state.open.question?.n === m.n) { state.deadline = performance.now() + m.remaining; state.heldLeft = m.held ? m.remaining : null; if (!m.held && state.view === 'answer') tick(); }
         break;
       case 'open':
+        if (!state.open || state.open.question?.n !== m.question?.n) sfx('notify');
         state.open = m;
         state.deadline = performance.now() + m.remaining;
         state.heldLeft = null;
@@ -116,11 +120,13 @@ export function mountPlayer(root, opts = {}) {
         state.lockedBet = m.bet;
         state.view = 'locked';
         buzz([20, 40, 20]);
+        sfx('lock');
         break;
       case 'answer:late':
         state.view = 'locked';
         break;
       case 'hint':
+        if (!state.hint) sfx('hint');
         state.hint = m.text;
         if (state.me) state.me.hintsLeft = m.hintsLeft;
         break;
@@ -135,10 +141,14 @@ export function mountPlayer(root, opts = {}) {
         state.view = 'result';
         buzz(m.correct ? [30, 60, 30] : 80);
         if (m.correct || m.won) celebrate(m.streakBonus || m.won ? 160 : 80);
+        // The creator's phone already plays the show's reveal, so it only adds the streak.
+        if (m.streakBonus) { sfx('streak'); setTimeout(() => sfx('bonus'), 450); }
+        else if (!state.creator) sfx(m.correct || m.won ? 'win' : m.value == null ? 'timeup' : 'lose');
         break;
       case 'standing':
         state.standing = m;
         if (state.me) state.me.score = m.score;
+        if (m.final && state.view !== 'final' && !state.creator) sfx(m.rank === 1 ? 'fanfare' : 'place', Math.min(2, (m.rank || 3) - 1));
         if (m.final) state.view = 'final';
         break;
       case 'rewind':
@@ -267,6 +277,7 @@ export function mountPlayer(root, opts = {}) {
     state.selected = letter;
     state.pop = `[data-pick="${letter}"]`;
     buzz(10);
+    sfx('select', (state.open.question.options || []).findIndex((o) => o.letter === letter));
     render();
   }
 
@@ -632,7 +643,7 @@ export function mountPlayer(root, opts = {}) {
       if (state.open?.question.kind === 'number' && state.selected == null) state.selected = Number($('#num', root).value);
       lockIn();
     });
-    root.querySelectorAll('[data-bet]').forEach((btn) => btn.addEventListener('click', () => { state.bet = Number(btn.dataset.bet); state.pop = `[data-bet="${btn.dataset.bet}"]`; buzz(10); render(); }));
+    root.querySelectorAll('[data-bet]').forEach((btn) => btn.addEventListener('click', () => { state.bet = Number(btn.dataset.bet); state.pop = `[data-bet="${btn.dataset.bet}"]`; buzz(10); sfx('bet', [...root.querySelectorAll('[data-bet]')].indexOf(btn)); render(); }));
     const hint = $('[data-act="hint"]', root);
     if (hint) hint.addEventListener('click', useHint);
     const leave = $('[data-act="leave"]', root);
@@ -694,6 +705,11 @@ export function mountPlayer(root, opts = {}) {
       startOnline(false).then(() => net.send({ t: 'join', code: state.code, token })).catch(() => { state.view = 'create'; state.joining = false; render(); });
     }
   }
+
+  // Phones only play sound after a touch; the first tap anywhere turns it on.
+  const wake = () => { unlockAudio(); };
+  window.addEventListener('pointerdown', wake, { passive: true });
+  window.addEventListener('keydown', wake);
 
   render();
   return { state, net };

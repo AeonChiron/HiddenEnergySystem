@@ -137,7 +137,12 @@ export function mountHost(root, opts = {}) {
         const w = waiters.opened.get(m.n); if (w) { waiters.opened.delete(m.n); w(); }
         break;
       }
-      case 'progress': S.progress = { answered: m.answered, total: m.total }; renderProgress(); break;
+      case 'progress': {
+        const before = S.progress.answered;
+        S.progress = { answered: m.answered, total: m.total }; renderProgress();
+        if (S.open && m.total > 0 && m.answered === m.total && before < m.total) sfx('allin');
+        break;
+      }
       case 'results': {
         S.results[m.n] = m; S.open = null;
         const w = waiters.results.get(m.n); if (w) { waiters.results.delete(m.n); w(m); }
@@ -218,7 +223,7 @@ export function mountHost(root, opts = {}) {
         li.title = 'Click to remove this player';
         li.addEventListener('click', () => { if (confirm(`Remove ${p.name} from the game?`)) net.send({ t: 'host:kick', id: p.id }); });
         ul.appendChild(li);
-        if (!had.has(p.id) && S.started === false) { li.classList.add('enter'); if (newId === p.id) sfx('pop'); }
+        if (!had.has(p.id) && S.started === false) { li.classList.add('enter'); if (newId === p.id) sfx('join', list.length); }
       }
       li.classList.toggle('away', !p.connected);
     }
@@ -278,7 +283,7 @@ export function mountHost(root, opts = {}) {
       const s = Math.ceil(left / 1000);
       if (s !== lastSec) {
         num.textContent = s;
-        if (s <= 5 && s > 0) { sfx('tick'); box.classList.add('hurry'); }
+        if (s <= 5 && s > 0) { sfx('tick', s); box.classList.add('hurry'); }
         lastSec = s;
       }
       if (left > 0) timerRaf = requestAnimationFrame(tick);
@@ -314,8 +319,8 @@ export function mountHost(root, opts = {}) {
   function advance() {
     unlockAudio(); unlockMusic();
     if (waiters.start) return waiters.start();
-    if (waiters.next) return waiters.next();
-    if (waiters.skip) return waiters.skip();
+    if (waiters.next) { sfx('next'); return waiters.next(); }
+    if (waiters.skip) { sfx('next'); return waiters.skip(); }
     if (S.open && !S.results[S.open.n]) net.send({ t: 'host:close' });
   }
   $('.hud-next', root).addEventListener('click', advance);
@@ -346,7 +351,7 @@ export function mountHost(root, opts = {}) {
   root.querySelector('[data-tool="fs"]').addEventListener('click', toggleFs);
   // Pause (test mode): freezes the camera, holds, animations and the answer timer.
   function togglePause() {
-    if (clock.paused) { clock.resume(); net.send({ t: 'host:unhold' }); } else { clock.pause(); net.send({ t: 'host:hold' }); }
+    if (clock.paused) { clock.resume(); net.send({ t: 'host:unhold' }); sfx('play'); } else { sfx('pause'); clock.pause(); net.send({ t: 'host:hold' }); }
     root.classList.toggle('paused', clock.paused);
     holdMusic(clock.paused);
     root.querySelector('[data-tool="pause"]').textContent = clock.paused ? 'Play' : 'Pause';
@@ -358,6 +363,7 @@ export function mountHost(root, opts = {}) {
     if (opts.connect || !S.started || S.step <= 1) return;
     const target = S.step - 1;
     if (clock.paused) togglePause();
+    sfx('back');
     net.send({ t: 'host:back', step: target });
   }
   root.querySelector('[data-tool="back"]')?.addEventListener('click', goBack);
@@ -475,7 +481,7 @@ export function mountHost(root, opts = {}) {
     startBtn.remove();
     S.started = true;
     $('.hud-next', root).hidden = false;
-    sfx('sting');
+    sfx('start');
   }
 
   // How to play: a short cutscene, one rule per beat. Each caption rolls in,
@@ -499,7 +505,7 @@ export function mountHost(root, opts = {}) {
       b.classList.remove('off');
       b.classList.add('on');
       stage(step, { name: 'howto', beat: i }); // the phones show this rule now, not before
-      sfx(i === beats.length - 1 ? 'sting' : 'pop');
+      if (i === beats.length - 1) sfx('ready'); else sfx('rule', i);
       const left = TOTAL - (clock.now() - t0) - (beats.length - 1 - i) * MOVE;
       const share = chars[i] / chars.slice(i).reduce((x, y) => x + y, 0);
       const beatMs = Math.max((MODE === 'online' ? 3000 : 4900) / SPEED, left * share) * SPEED;
@@ -520,7 +526,7 @@ export function mountHost(root, opts = {}) {
     sfx('riser', 0.9);
     await cam.fly(frameOf(`round${r}`, 0));
     sfx('impact');
-    sfx('sting');
+    sfx('round', r);
     await wait(7000);
   }
 
@@ -567,13 +573,14 @@ export function mountHost(root, opts = {}) {
     // Scene 1: question introduction.
     await cam.fly(frameOf(`q${q.n}title`, 0.1));
     el.classList.add('show-title');
-    sfx('pop');
+    sfx('title');
     await wait(8000); // Seed (Nov 24): the question holds exactly 8 seconds
     // Scenes 2-5: one mini cutscene per answer, always whooshing right.
     for (const { letter: L, text } of q.options.filter((o) => !o.all)) {
       stage(step, { name: 'watch', n: q.n, round: q.round, letter: L });
       const panel = el.querySelector(`.panel[data-letter="${L}"]`);
-      sfx('whoosh');
+      sfx('whoosh', 0.3 + q.options.findIndex((o) => o.letter === L) * 0.2);
+      sfx('option', q.options.findIndex((o) => o.letter === L));
       const t0 = clock.now();
       const move = L === 'A' ? cam.ease(frameOf(`q${q.n}${L}`, 0.07), 900) : cam.whoosh(frameOf(`q${q.n}${L}`, 0.07), 620);
       setTimeout(() => panel.classList.add('in', 'play'), 180 / SPEED);
@@ -617,7 +624,7 @@ export function mountHost(root, opts = {}) {
       const c = p.querySelector('.count');
       if (c) c.textContent = res.counts[L] ?? 0;
     });
-    sfx(res.correctCount > 0 ? 'correct' : 'wrong');
+    if (res.correctCount > 0) sfx('correct', res.correctCount / Math.max(1, res.answeredCount)); else sfx('wrong');
     await wait(2600);
     // The educational reveal below the question.
     const r = live(`r${q.n}`);
@@ -640,9 +647,10 @@ export function mountHost(root, opts = {}) {
     await cam.fly(frameOf(`q${q.n}plate`, 0.04));
     el.classList.add('enter');
     sfx('whoosh');
+    sfx('meal');
     await wait(1400);
     el.classList.add('named');
-    sfx('pop');
+    sfx('callout');
     await wait(3100); // all three rings land first, then the High/Low choice comes in
     el.classList.add('overview');
     await cam.ease(frameOf(`q${q.n}`, 0.04), 1200);
@@ -661,7 +669,7 @@ export function mountHost(root, opts = {}) {
       c.querySelector('.count').textContent = res.counts[c.dataset.letter] ?? 0;
     });
     el.querySelector('.food-stats').textContent = statsLine(res);
-    sfx(res.correctCount > 0 ? 'correct' : 'wrong');
+    if (res.correctCount > 0) sfx('correct', res.correctCount / Math.max(1, res.answeredCount)); else sfx('wrong');
     await wait(1400);
     el.classList.add('callouts-on');
   }
@@ -669,7 +677,7 @@ export function mountHost(root, opts = {}) {
   async function bonusQuestionIntro(q, el) {
     await cam.fly(frameOf(`q${q.n}`, 0));
     el.classList.add('overview', 'all-in');
-    sfx('pop');
+    sfx('title');
     await wait(4000);
   }
 
@@ -690,7 +698,7 @@ export function mountHost(root, opts = {}) {
       };
       requestAnimationFrame(step);
     });
-    sfx('correct');
+    sfx((res.guesses || []).some((g) => g.won) ? 'bonus' : 'correct', 1);
     const list = el.querySelector('#guesses');
     list.innerHTML = (res.guesses || []).slice(0, 5).map((g) => `<li class="${g.won ? 'won' : ''}"><i style="--c:${g.color}"></i><span>${esc(g.name)}</span><b>${g.value}%</b>${g.won ? '<em>+$300,000</em>' : ''}</li>`).join('');
     await wait(400);
@@ -702,7 +710,7 @@ export function mountHost(root, opts = {}) {
     hud();
     live(`disc${r}`);
     await cam.fly(frameOf(`disc${r}`, 0));
-    sfx('sting');
+    sfx('discovery');
     await wait(3500);
   }
 
@@ -719,6 +727,7 @@ export function mountHost(root, opts = {}) {
     await cam.ease(frameOf(`lb${r}`, 0), 1400);
     el.classList.add('play');
     countUpMoney(ol.querySelectorAll('em[data-to]'), 1400);
+    [0, 1, 2].forEach((k) => setTimeout(() => sfx('reward', k), (k * 380) / SPEED));
     await waitNext('Next', 7000);
     $('.hud-join', root).hidden = true;
   }
@@ -741,7 +750,7 @@ export function mountHost(root, opts = {}) {
     hud();
     live('bonusIntro');
     await cam.fly(frameOf('bonusIntro', 0));
-    sfx('sting');
+    sfx('bonusIntro');
     await wait(2800);
   }
 
@@ -773,7 +782,8 @@ export function mountHost(root, opts = {}) {
       spot.className = 'spot on';
       sfx('drumroll', 1.2);
       await wait(1500);
-      for (const li of spot.querySelectorAll('li')) { li.classList.add('in'); sfx('pop'); await wait(1300); }
+      let k = 0;
+      for (const li of spot.querySelectorAll('li')) { li.classList.add('in'); sfx('line', k++); await wait(1300); }
       spot.querySelector('.spot-money').classList.add('in');
       await countUp(spot.querySelector('.spot-money span'), p.score, 1600);
       await wait(900);
@@ -786,7 +796,7 @@ export function mountHost(root, opts = {}) {
       spot.className = 'spot';
       await wait(500);
       el.querySelector(`.${cls}`).classList.add('up');
-      sfx('pop');
+      sfx('place', ranks.findIndex((x) => x[1] === cls));
       await wait(1800);
     }
     if (list[0]) {
