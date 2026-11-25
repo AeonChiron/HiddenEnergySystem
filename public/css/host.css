@@ -222,10 +222,10 @@
 .hud-timer.hurry .arc { stroke: var(--orange); }
 .hud-timer b { position: relative; font-size: 46px; font-weight: 800; font-variant-numeric: tabular-nums; }
 .hud-timer small { position: absolute; bottom: 24px; font-size: 14px; color: var(--ink-3); }
-.hud-answers { position: absolute; right: 30px; bottom: 26px; background: #fff; border: 2px solid var(--line); border-radius: 999px; padding: 10px 22px; font-weight: 700; color: var(--ink-2); }
+.hud-answers { position: absolute; left: 50%; translate: -50% 0; bottom: 26px; background: #fff; border: 2px solid var(--line); border-radius: 999px; padding: 10px 22px; font-weight: 700; color: var(--ink-2); }
 .hud-answers b { font-size: 26px; margin-right: 6px; color: var(--ink); }
 .hud-join { position: absolute; left: 30px; bottom: 26px; background: #fff; border: 2px solid var(--line); border-radius: 999px; padding: 10px 20px; font-size: 18px; color: var(--ink-2); }
-.hud-next { position: absolute; right: 30px; bottom: 26px; display: inline-flex; gap: 12px; align-items: center; background: #fff; color: var(--ink); border: 2px solid var(--line); border-radius: 999px; padding: 10px 12px 10px 22px; font-size: 20px; font-weight: 800; overflow: hidden; }
+.hud-next { position: relative; display: inline-flex; gap: 12px; align-items: center; background: #fff; color: var(--ink); border: 2px solid var(--line); border-radius: 999px; padding: 10px 12px 10px 22px; font-size: 20px; font-weight: 800; overflow: hidden; }
 .hud-next kbd { font: inherit; font-size: 13px; background: var(--ivory); border-radius: 8px; padding: 4px 8px; }
 .hud-next .auto { position: absolute; left: 0; bottom: 0; height: 3px; background: var(--teal); width: 100%; transform-origin: left; transform: scaleX(0); }
 .hud-next.counting .auto { animation: autoadv var(--t, 8s) linear forwards; animation-play-state: running; }
@@ -413,3 +413,13 @@
 @keyframes hurry-edge { 0%, 100% { box-shadow: inset 0 0 40px 0 rgba(196, 90, 44, .05); } 50% { box-shadow: inset 0 0 120px 8px rgba(196, 90, 44, .28); } }
 @media (prefers-reduced-motion: reduce) { .viewport.punch, .he-host::after { animation: none !important; } }
 .beat-vis:empty { display: none; } /* text-only rule: the words sit in the middle */
+
+/* Control dock, bottom right, always on screen once the game starts: Back, Pause, Next */
+.hud-dock { position: absolute; right: 30px; bottom: 26px; display: flex; gap: 10px; align-items: center; z-index: 6; }
+.hud-dock[hidden] { display: none; }
+.dock-btn { display: inline-flex; gap: 8px; align-items: center; background: #fff; color: var(--ink-2); border: 2px solid var(--line); border-radius: 999px; padding: 10px 18px 10px 12px; font-size: 17px; font-weight: 800; transition: border-color .2s, background .2s, color .2s, transform .2s var(--spring); }
+.dock-btn kbd, .hud-next kbd { font: inherit; font-size: 13px; background: var(--ivory); border-radius: 8px; padding: 4px 8px; color: var(--ink); }
+.dock-btn:hover, .hud-next:hover { border-color: var(--teal); transform: translateY(-1px); }
+.dock-btn:active, .hud-next:active { transform: scale(.97); }
+.dock-btn.on { background: var(--teal); border-color: var(--teal); color: #fff; }
+.dock-btn.on kbd { background: rgb(255 255 255 / .2); color: #fff; }

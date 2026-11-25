@@ -167,11 +167,11 @@ main [tabindex="-1"]:focus { outline: none; }
 /* ---------- online mode (no projector) ---------- */
 .he-hidden-show { display: none; }
 .stage-pic { margin: 0 0 6px; width: 100%; max-width: 420px; aspect-ratio: 1; border-radius: 22px; overflow: hidden; background: var(--ivory); box-shadow: 0 14px 30px -18px rgba(19, 40, 43, .45); }
-.stage-pic img { width: 100%; height: 100%; object-fit: cover; display: block; animation: pic-drift 14s ease-in-out infinite alternate; }
+.stage-pic img { width: 100%; height: 100%; object-fit: cover; display: block; animation: pic-drift 8s cubic-bezier(.16, 1, .3, 1) both; }
 .stage-pic.food { aspect-ratio: auto; background: none; box-shadow: none; max-width: 340px; }
 .stage-pic.food img { object-fit: contain; height: auto; }
 .stage-pic.small { max-width: 220px; border-radius: 18px; }
-@keyframes pic-drift { from { transform: scale(1); } to { transform: scale(1.05); } }
+@keyframes pic-drift { from { transform: scale(1.01); } to { transform: scale(1.09); } } /* one push-in that lands, never back and forth */
 .online-watch { gap: 10px; }
 .online-watch .opt { display: flex; gap: 12px; align-items: flex-start; text-align: left; font-size: 20px; font-weight: 750; line-height: 1.25; margin: 4px 0 0; max-width: 420px; }
 .online-watch .opt .ltr { flex: none; display: inline-grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; font-size: 21px; }

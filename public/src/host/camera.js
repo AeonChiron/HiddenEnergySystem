@@ -16,6 +16,9 @@ export const ease = {
   inOutExpo: (t) => (t === 0 ? 0 : t === 1 ? 1 : t < 0.5 ? 2 ** (20 * t - 10) / 2 : (2 - 2 ** (-20 * t + 10)) / 2),
   outExpo: (t) => (t === 1 ? 1 : 1 - 2 ** (-10 * t)),
   outBack: (t) => 1 + 2.2 * (t - 1) ** 3 + 1.2 * (t - 1) ** 2,
+  // Fast out, long landing: an expo in-out on warped time spends about two
+  // thirds of the move settling, the way a real camera move lands.
+  launch: (t) => ease.inOutExpo(t ** 0.62),
 };
 
 export class Camera {
@@ -93,8 +96,8 @@ export class Camera {
     const a = { ...this.pos };
     const b = { ...a, ...to };
     return this.tween((t) => {
-      const e = ease.inOutQuart(t);
-      const bump = Math.sin(Math.PI * t);
+      const e = ease.launch(t);
+      const bump = Math.sin(Math.PI * Math.min(1, e * 1.15));
       const z = lerpLog(a.z, b.z, e) * (1 - (1 - dip) * bump);
       return { x: a.x + (b.x - a.x) * e, y: a.y + (b.y - a.y) * e, z };
     }, ms);
@@ -130,7 +133,7 @@ export class Camera {
     const dur = ms ?? Math.min(3600, Math.max(1100, path.S * 900));
     return this.tween((t) => {
       if (t >= 1) return b;
-      const p = path.at(ease.inOutCubic(t) * path.S);
+      const p = path.at(ease.launch(t) * path.S);
       return { x: p.x, y: p.y, z: DESIGN_W / p.w };
     }, dur);
   }

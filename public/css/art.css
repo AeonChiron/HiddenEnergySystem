@@ -277,17 +277,43 @@
 .round-art .pic { height: auto; width: 100%; }
 .z-round1 .round-art .pic { aspect-ratio: 16 / 9; height: auto; width: 100%; position: relative; top: 50%; transform: translateY(-50%); }
 .z-round1 .round-art .pic img { object-fit: contain; background: #fff; }
-/* slow camera drift */
-:is(.live, .play) .pic-in img { animation: pic-in 14s ease-in-out infinite alternate; }
-:is(.live, .play) .pic-out img { animation: pic-out 14s ease-in-out infinite alternate; }
-:is(.live, .play) .pic-left img { animation: pic-left 16s ease-in-out infinite alternate; }
-:is(.live, .play) .pic-right img { animation: pic-right 16s ease-in-out infinite alternate; }
-:is(.live, .play) .pic-up img { animation: pic-up 15s ease-in-out infinite alternate; }
-@keyframes pic-in { from { transform: scale(calc(var(--z, 1) * 1.02)); } to { transform: scale(calc(var(--z, 1) * 1.1)); } }
-@keyframes pic-out { from { transform: scale(calc(var(--z, 1) * 1.1)); } to { transform: scale(calc(var(--z, 1) * 1.02)); } }
-@keyframes pic-left { from { transform: scale(calc(var(--z, 1) * 1.08)) translateX(2%); } to { transform: scale(calc(var(--z, 1) * 1.08)) translateX(-2%); } }
-@keyframes pic-right { from { transform: scale(calc(var(--z, 1) * 1.08)) translateX(-2%); } to { transform: scale(calc(var(--z, 1) * 1.08)) translateX(2%); } }
-@keyframes pic-up { from { transform: scale(calc(var(--z, 1) * 1.08)) translateY(2%); } to { transform: scale(calc(var(--z, 1) * 1.08)) translateY(-2%); } }
-/* faint ripple on the big pictures (intros and reveals) */
-:is(.live, .play) .pic-big img { filter: url(#he-ripple); }
-@media (prefers-reduced-motion: reduce) { .pic img { animation: none !important; filter: none !important; } }
+/* Camera moves on the pictures (Nov 25): one move per picture, fast out and a
+   long landing, so it never floats back and forth. Pictures with a cut-out
+   subject get real depth: the background (.bg) moves a little, the subject
+   (.fg) moves more, like a camera pushing past it. Values per layer:
+   --s scale, --x / --y travel, from 0 (arrival) to 1 (landed). */
+.pic img { --s0: 1; --s1: 1; --x0: 0%; --x1: 0%; --y0: 0%; --y1: 0%; }
+.pic.depth img { position: absolute; inset: 0; }
+.pic.depth .fg { filter: drop-shadow(0 14px 22px rgb(10 30 35 / .22)); }
+@keyframes pic-move {
+  from { transform: translate(var(--x0), var(--y0)) scale(calc(var(--z, 1) * var(--s0))); }
+  to   { transform: translate(var(--x1), var(--y1)) scale(calc(var(--z, 1) * var(--s1))); }
+}
+:is(.live, .play) .pic img { animation: pic-move 9s cubic-bezier(.16, 1, .3, 1) both; }
+/* answer panels move from the moment each one is shown, and stay landed after */
+.panel:not(.in) .pic img, .panel:not(.in) .pic::after { animation: none; }
+.panel.in .pic img { animation: pic-move 7s cubic-bezier(.16, 1, .3, 1) both; }
+/* flat pictures */
+.pic-in img    { --s0: 1.01; --s1: 1.1; }
+.pic-out img   { --s0: 1.14; --s1: 1.03; }
+.pic-left img  { --s0: 1.1; --s1: 1.1; --x0: 3%; --x1: -2%; }
+.pic-right img { --s0: 1.1; --s1: 1.1; --x0: -3%; --x1: 2%; }
+.pic-up img    { --s0: 1.1; --s1: 1.1; --y0: 3%; --y1: -1.5%; }
+/* depth pictures: the subject travels about twice as far as its background */
+.pic-in.depth .bg    { --s0: 1.01; --s1: 1.06; }
+.pic-in.depth .fg    { --s0: 1.01; --s1: 1.13; --y1: -1%; }
+.pic-out.depth .bg   { --s0: 1.08; --s1: 1.02; }
+.pic-out.depth .fg   { --s0: 1.17; --s1: 1.03; }
+.pic-left.depth .bg  { --s0: 1.08; --s1: 1.08; --x0: 1.6%; --x1: -1%; }
+.pic-left.depth .fg  { --s0: 1.1; --s1: 1.1; --x0: 4%; --x1: -2.5%; }
+.pic-right.depth .bg { --s0: 1.08; --s1: 1.08; --x0: -1.6%; --x1: 1%; }
+.pic-right.depth .fg { --s0: 1.1; --s1: 1.1; --x0: -4%; --x1: 2.5%; }
+.pic-up.depth .bg    { --s0: 1.08; --s1: 1.08; --y0: 1.5%; --y1: -.5%; }
+.pic-up.depth .fg    { --s0: 1.1; --s1: 1.12; --y0: 4%; --y1: -1.5%; }
+/* a soft band of light crosses each picture once as it arrives */
+.pic::after { content: ''; position: absolute; inset: 0; pointer-events: none; border-radius: inherit; background: linear-gradient(105deg, transparent 35%, rgb(255 255 255 / .22) 48%, rgb(255 255 255 / .06) 56%, transparent 66%) 0 0 / 260% 100% no-repeat; background-position: 130% 0; opacity: 0; }
+:is(.live, .play) .pic::after { animation: pic-light 1.8s .25s cubic-bezier(.22, .8, .3, 1) both; }
+.panel.in .pic::after { animation: pic-light 1.8s .25s cubic-bezier(.22, .8, .3, 1) both; }
+@keyframes pic-light { 0% { background-position: 130% 0; opacity: 0; } 15% { opacity: 1; } 100% { background-position: -30% 0; opacity: 0; } }
+:is(.live, .play) .pic-big:not(.depth) img, :is(.live, .play) .pic-big.depth .bg { filter: url(#he-ripple); }
+@media (prefers-reduced-motion: reduce) { .pic img, .pic::after { animation: none !important; } .pic img { filter: none !important; } }

@@ -45,12 +45,14 @@ export function mountHost(root, opts = {}) {
       <div class="hud-timer" hidden><svg viewBox="0 0 120 120"><circle class="trk" cx="60" cy="60" r="52"/><circle class="arc" cx="60" cy="60" r="52"/></svg><b>20</b><small>s</small></div>
       <div class="hud-answers" hidden><b>0</b><span>/ 0 answered</span></div>
       <div class="hud-join" hidden></div>
-      <button class="hud-next" hidden><span>Next</span><kbd>Space</kbd><i class="auto"></i></button>
+      <div class="hud-dock" hidden>
+        ${opts.connect ? '' : '<button class="dock-btn" data-tool="back" title="Back one step (Left arrow)"><kbd>&larr;</kbd>Back</button>'}
+        <button class="dock-btn" data-tool="pause" title="Pause (P)"><kbd>P</kbd><span>Pause</span></button>
+        <button class="hud-next"><span>Next</span><kbd>Space</kbd><i class="auto"></i></button>
+      </div>
       <div class="hud-tools">
         <button class="tool" data-tool="mute" title="Mute (M)">Sound on</button>
         <button class="tool" data-tool="fs" title="Fullscreen (F)">Fullscreen</button>
-        ${opts.connect ? '' : '<button class="tool" data-tool="back" title="Back one step (Left arrow)">Back</button>'}
-        <button class="tool" data-tool="pause" title="Pause (P)">Pause</button>
         <button class="tool" data-tool="board" title="See the whole board (test mode)">Whole board</button>
         <button class="tool" data-tool="restart" title="Start over from the lobby">Restart</button>
       </div>
@@ -304,13 +306,12 @@ export function mountHost(root, opts = {}) {
   function waitNext(label = 'Next', autoMs = 0) {
     const btn = $('.hud-next', root);
     btn.querySelector('span').textContent = label;
-    btn.hidden = false;
     btn.classList.remove('counting');
     let cancel = () => {};
     const ms = AUTO ? autoMs / SPEED : 0;
     if (ms > 0) { btn.style.setProperty('--t', `${ms}ms`); void btn.offsetWidth; btn.classList.add('counting'); }
     return new Promise((res) => {
-      waiters.next = () => { cancel(); btn.classList.remove('counting'); btn.querySelector('span').textContent = 'Next'; btn.hidden = !S.started; waiters.next = null; res(); };
+      waiters.next = () => { cancel(); btn.classList.remove('counting'); btn.querySelector('span').textContent = 'Next'; waiters.next = null; res(); };
       if (ms > 0) cancel = clock.after(ms, () => waiters.next && waiters.next());
     });
   }
@@ -354,7 +355,8 @@ export function mountHost(root, opts = {}) {
     if (clock.paused) { clock.resume(); net.send({ t: 'host:unhold' }); sfx('play'); } else { sfx('pause'); clock.pause(); net.send({ t: 'host:hold' }); }
     root.classList.toggle('paused', clock.paused);
     holdMusic(clock.paused);
-    root.querySelector('[data-tool="pause"]').textContent = clock.paused ? 'Play' : 'Pause';
+    root.querySelector('[data-tool="pause"] span').textContent = clock.paused ? 'Resume' : 'Pause';
+    root.querySelector('[data-tool="pause"]').classList.toggle('on', clock.paused);
   }
   root.querySelector('[data-tool="pause"]').addEventListener('click', togglePause);
   window.addEventListener('keydown', (e) => { if ((e.key === 'p' || e.key === 'P') && !(e.target.closest && e.target.closest('input,textarea'))) togglePause(); });
@@ -419,7 +421,7 @@ export function mountHost(root, opts = {}) {
   async function startShow(from, auto) {
     S.running = true;
     const steps = S.content.steps;
-    if (from > 0) { S.started = true; $('.hud-next', root).hidden = false; }
+    if (from > 0) { S.started = true; $('.hud-dock', root).hidden = false; }
     if (from > 0 && auto) playMusic(songAt(steps, from));
     else if (from > 0) {
       // Browsers only play sound after a click, and "Play from here" reloads
@@ -480,7 +482,7 @@ export function mountHost(root, opts = {}) {
     });
     startBtn.remove();
     S.started = true;
-    $('.hud-next', root).hidden = false;
+    $('.hud-dock', root).hidden = false; // Back, Pause and Next stay on screen from here to the end
     sfx('start');
   }
 
