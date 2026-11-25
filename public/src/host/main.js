@@ -123,7 +123,15 @@ export function mountHost(root, opts = {}) {
   }
 
   // ---------- camera ----------
-  const cam = new Camera($('#viewport', root), $('#world', root), { speed: SPEED });
+  // The HUD is laid out at 1920x1080 and scaled onto the stage with the camera.
+  const cam = new Camera($('#viewport', root), $('#world', root), {
+    speed: SPEED,
+    onFit: (fit, box) => {
+      const h = $('#hud', root);
+      root.style.setProperty('--fit', fit);
+      h.style.transform = `translate(${box.left}px, ${box.top}px) scale(${fit})`;
+    },
+  });
   const Z = (id) => S.zones[id];
   const frameOf = (id, margin) => cam.frame(Z(id), margin);
 
@@ -180,7 +188,27 @@ export function mountHost(root, opts = {}) {
     }
     const n = list.length;
     $('#waiting', root).textContent = n === 0 ? 'Waiting for players...' : `${n} player${n === 1 ? '' : 's'} ready`;
+    fitRoster(ul);
     renderProgress();
+  }
+
+  // Names shrink as the room fills. If they still don't fit, the earliest
+  // joiners fold into a "+N more" chip so the newest names stay in view.
+  function fitRoster(ul) {
+    const lis = [...ul.querySelectorAll('li:not(.more)')];
+    const n = lis.length;
+    ul.dataset.size = n > 18 ? 's' : n > 9 ? 'm' : '';
+    ul.querySelector('li.more')?.remove();
+    lis.forEach((li) => (li.hidden = false));
+    if (ul.scrollHeight <= ul.clientHeight + 1) return;
+    const more = document.createElement('li');
+    more.className = 'more';
+    ul.prepend(more);
+    let hidden = 0;
+    while (hidden < n - 1 && ul.scrollHeight > ul.clientHeight + 1) {
+      lis[hidden++].hidden = true;
+      more.textContent = `+${hidden} more`;
+    }
   }
 
   // ---------- HUD ----------
@@ -428,7 +456,7 @@ export function mountHost(root, opts = {}) {
     const info = roundInfo(r);
     stage(step, { name: 'roundIntro', round: r });
     playMusic(`round${r}`);
-    hud({ round: `Round ${r}`, q: info.name });
+    hud(); // the round title fills the screen
     $('.hud-join', root).hidden = true;
     live(`round${r}`);
     await cam.fly(frameOf(`round${r}`, 0));
@@ -439,7 +467,7 @@ export function mountHost(root, opts = {}) {
   async function question(step, n, resumed) {
     const q = roundOf(n);
     const info = q.round === 'bonus' ? null : roundInfo(q.round);
-    hud({ round: info ? `Round ${q.round} · ${info.name}` : 'Final bonus', q: q.round === 'bonus' ? 'Bonus question' : `Question ${pad2(n)} / 12` });
+    hud({ round: info ? `Round ${q.round} · ${info.theme}` : 'Final bonus', q: q.round === 'bonus' ? 'Bonus question' : `Question ${pad2(n)} / 12` });
     const el = live(`q${n}`);
     const already = S.results[n];
 
@@ -504,11 +532,16 @@ export function mountHost(root, opts = {}) {
     sfx('reveal');
     await wait(900);
     el.classList.add('revealed');
+    // "All of the above" right: only D gets the ring; A to C are marked as part of it.
+    const allL = q.options.find((o) => o.all)?.letter;
+    const allRight = res.correct === allL;
     el.querySelectorAll('[data-letter]').forEach((p) => {
       const L = p.dataset.letter;
-      const right = L === res.correct || res.correct === q.options.find((o) => o.all)?.letter;
+      const right = L === res.correct;
+      const part = allRight && !right;
       p.classList.toggle('right', right);
-      p.classList.toggle('wrong', !right);
+      p.classList.toggle('part', part);
+      p.classList.toggle('wrong', !right && !part);
       const c = p.querySelector('.count');
       if (c) c.textContent = res.counts[L] ?? 0;
     });
@@ -518,11 +551,15 @@ export function mountHost(root, opts = {}) {
     const r = live(`r${q.n}`);
     el.classList.add('live');
     const stats = r.querySelector('.reveal-stats');
-    stats.textContent = res.answeredCount
-      ? `${res.correctCount} of ${res.answeredCount} got it right${res.wonTotal ? ` · $${fmt(res.wonTotal)} won in bets` : ''}`
-      : 'Nobody answered this one.';
+    stats.textContent = statsLine(res);
     await cam.fly(frameOf(`r${q.n}`, 0.04), 1500);
     r.classList.add('play');
+  }
+
+  function statsLine(res) {
+    return res.answeredCount
+      ? `${res.correctCount} of ${res.answeredCount} got it right${res.wonTotal ? ` · $${fmt(res.wonTotal)} won in bets` : ''}`
+      : 'Nobody answered this one.';
   }
 
   async function foodIntro(step, q, el) {
@@ -550,6 +587,7 @@ export function mountHost(root, opts = {}) {
       c.classList.toggle('wrong', !right);
       c.querySelector('.count').textContent = res.counts[c.dataset.letter] ?? 0;
     });
+    el.querySelector('.food-stats').textContent = statsLine(res);
     sfx(res.correctCount > 0 ? 'correct' : 'wrong');
     await wait(1400);
     el.classList.add('callouts-on');
@@ -588,7 +626,7 @@ export function mountHost(root, opts = {}) {
 
   async function discovery(step, r) {
     stage(step, { name: 'discovery', round: r });
-    hud({ round: `Round ${r} complete` });
+    hud();
     live(`disc${r}`);
     await cam.fly(frameOf(`disc${r}`, 0));
     sfx('sting');
@@ -607,12 +645,13 @@ export function mountHost(root, opts = {}) {
     $('.hud-join', root).hidden = false;
     await cam.ease(frameOf(`lb${r}`, 0), 1400);
     el.classList.add('play');
-    countUp(ol.querySelectorAll('em[data-to]'), 1400);
+    countUpMoney(ol.querySelectorAll('em[data-to]'), 1400);
     await waitNext('Next', 7000);
     $('.hud-join', root).hidden = true;
   }
 
-  function countUp(nodes, ms) {
+  // Leaderboard money: counts every row up from $0 together.
+  function countUpMoney(nodes, ms) {
     const t0 = clock.now();
     const go = () => {
       const t = Math.min(1, (clock.now() - t0) / (ms / SPEED));
@@ -626,7 +665,7 @@ export function mountHost(root, opts = {}) {
   async function bonusIntro(step) {
     stage(step, { name: 'bonusIntro', round: 'bonus' });
     playMusic('bonus');
-    hud({ round: 'Final bonus' });
+    hud();
     live('bonusIntro');
     await cam.fly(frameOf('bonusIntro', 0));
     sfx('sting');

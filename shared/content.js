@@ -253,7 +253,7 @@ export const REGULAR_MAX_XP = ROUNDS.reduce((s, r) => s + r.points * 4, 0); // 2
 // ---------- betting ----------
 // Everyone starts with $100,000. Each question you may bet nothing or a fixed
 // stake: 0%, 10%, 15%, 25% or 50% of what you have. Right: win the stake. Wrong or no answer: lose it. Three right
-// answers in a row pay a $100,000 streak bonus (the count then starts again).
+// answers in a row pay a $50,000 streak bonus (the count then starts again).
 export const START_MONEY = 100_000;
 // Bets are a share of what you have now: 0%, 10%, 15%, 25% or 50% (max).
 export const BET_PCTS = [0, 10, 15, 25, 50];

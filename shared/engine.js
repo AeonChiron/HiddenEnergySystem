@@ -162,7 +162,7 @@ export class Hub {
     if (s.n && qByN.has(s.n)) s.question = publicQuestion(qByN.get(s.n));
     if (s.round && ROUNDS.find((r) => r.id === s.round)) {
       const r = ROUNDS.find((x) => x.id === s.round);
-      s.roundInfo = { id: r.id, name: r.name, tagline: r.tagline, points: r.points, discovery: r.discovery };
+      s.roundInfo = { id: r.id, name: r.name, theme: r.theme, tagline: r.tagline, points: r.points, discovery: r.discovery };
     }
     for (const p of room.players.values()) if (p.conn) p.conn.send({ t: 'stage', stage: s });
     // A finished game tells every phone where it placed.
@@ -236,7 +236,7 @@ export class Hub {
     if (s.n && qByN.has(s.n)) s.question = publicQuestion(qByN.get(s.n));
     if (s.round && ROUNDS.find((r) => r.id === s.round)) {
       const r = ROUNDS.find((x) => x.id === s.round);
-      s.roundInfo = { id: r.id, name: r.name, tagline: r.tagline, points: r.points, discovery: r.discovery };
+      s.roundInfo = { id: r.id, name: r.name, theme: r.theme, tagline: r.tagline, points: r.points, discovery: r.discovery };
     }
     p.conn.send({ t: 'stage', stage: s });
   }

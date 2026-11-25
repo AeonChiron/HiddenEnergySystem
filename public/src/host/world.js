@@ -185,6 +185,7 @@ function foodHTML(q) {
         <div class="chips">
           ${q.options.map((o) => `<div class="chip l-${o.letter}" data-letter="${o.letter}"><span>${esc(o.text)}</span><i class="count"></i></div>`).join('')}
         </div>
+        <p class="food-stats"></p>
         <p class="food-reveal">${esc(q.reveal.text)}</p>
       </div>
     </div>`;
@@ -205,7 +206,7 @@ function mcHTML(q) {
             <i class="count"></i>
           </article>`).join('')}
       </div>
-      <div class="panel-e l-all" data-letter="${e.letter}"><b class="ltr">${e.letter}</b><p>${esc(e.text)}</p><i class="count"></i></div>
+      <div class="panel-all l-all" data-letter="${e.letter}"><b class="ltr">${e.letter}</b><p>${esc(e.text)}</p><i class="count"></i></div>
     </div>`;
 }
 
@@ -214,7 +215,7 @@ function revealHTML(q) {
     <div class="reveal-card">
       <div class="reveal-art">${art(q.reveal.scene)}</div>
       <div class="reveal-text">
-        <p class="kicker">The discovery</p>
+        <p class="kicker">The answer, explained</p>
         <p class="reveal-body">${esc(q.reveal.text)}</p>
         ${q.reveal.note ? `<p class="reveal-note">${esc(q.reveal.note)}</p>` : ''}
         <p class="reveal-stats"></p>
@@ -225,7 +226,7 @@ function revealHTML(q) {
 function discoveryHTML(r) {
   return `
     <div class="discovery">
-      <p class="kicker">End of round ${r.id}</p>
+      <p class="kicker">Round ${r.id} discovery</p>
       <h2 class="disc-text">${esc(r.discovery)}</h2>
     </div>`;
 }

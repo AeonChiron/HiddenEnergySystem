@@ -25,6 +25,7 @@ export class Camera {
     this.pos = { x: 0, y: 0, z: 1 };
     this.speed = opts.speed || 1;
     this.onMove = opts.onMove || null;
+    this.onFit = opts.onFit || null;
     this.anim = null;
     this.fit = 1;
     this.ro = new ResizeObserver(() => this.resize());
@@ -37,6 +38,12 @@ export class Camera {
     this.vw = r.width || DESIGN_W;
     this.vh = r.height || DESIGN_H;
     this.fit = Math.min(this.vw / DESIGN_W, this.vh / DESIGN_H);
+    // Show exactly the 16:9 stage. On a 4:3 projector the bands above and
+    // below stay blank instead of showing the next scene early.
+    const w = DESIGN_W * this.fit, h = DESIGN_H * this.fit;
+    const box = { left: (this.vw - w) / 2, top: (this.vh - h) / 2, w, h };
+    this.viewport.style.clipPath = box.left > 0.5 || box.top > 0.5 ? `inset(${box.top.toFixed(1)}px ${box.left.toFixed(1)}px)` : '';
+    this.onFit && this.onFit(this.fit, box);
     this.apply();
   }
 

@@ -52,8 +52,9 @@ export function mountTour(root, content, opts = {}) {
   const stops = [];
   const add = (zone, label, sub, rect, setup = () => {}) => stops.push({ zone, label, sub, rect, setup });
   const mark = (el, answer, all) => el.querySelectorAll('[data-letter]').forEach((p) => {
-    const right = answer === all || p.dataset.letter === answer;
-    p.classList.toggle('right', right); p.classList.toggle('wrong', !right);
+    const right = p.dataset.letter === answer;
+    const part = !!all && answer === all && !right;
+    p.classList.toggle('right', right); p.classList.toggle('part', part); p.classList.toggle('wrong', !right && !part);
   });
 
   add('lobby', 'Lobby', 'Home screen and join card', 'lobby', (el) => el.classList.add('intro'));
@@ -80,10 +81,10 @@ export function mountTour(root, content, opts = {}) {
         }
         add(z, name, 'All answers, time to choose', z, (el) => el.classList.add('show-title', 'overview', 'all-in'));
         add(z, name, 'The right answer', z, (el) => { el.classList.add('show-title', 'overview', 'all-in', 'revealed'); mark(el, q.answer, q.options.find((o) => o.all)?.letter); });
-        add(`r${q.n}`, name, 'The discovery', `r${q.n}`, (el) => el.classList.add('play'));
+        add(`r${q.n}`, name, 'The answer, explained', `r${q.n}`, (el) => el.classList.add('play'));
       }
     }
-    add(`disc${r.id}`, `Round ${r.id}`, 'End of round', `disc${r.id}`);
+    add(`disc${r.id}`, `Round ${r.id}`, 'Round discovery', `disc${r.id}`);
     if (zones[`lb${r.id}`]) add(`lb${r.id}`, `Round ${r.id}`, 'Leaderboard (sample players)', `lb${r.id}`, (el) => el.classList.add('play'));
   }
   const bonus = questions.find((q) => q.kind === 'number');

@@ -81,7 +81,7 @@ export function mountPlayer(root, opts = {}) {
         state.stage = m.stage;
         if (!['decision', 'reveal'].includes(m.stage.name)) { state.result = null; }
         if (m.stage.name === 'watch' && (!state.open || state.open.question.n !== m.stage.n)) {
-          state.open = null; state.locked = null; state.selected = null; state.hint = null; state.bet = 0; state.lockedBet = null;
+          state.open = null; state.locked = null; state.selected = null; state.hint = null; state.bet = null; state.lockedBet = null;
         }
         state.view = viewForStage(m.stage.name);
         break;
@@ -95,7 +95,7 @@ export function mountPlayer(root, opts = {}) {
         state.locked = m.locked;
         state.selected = m.locked;
         state.lockedBet = m.lockedBet;
-        if (m.locked == null) state.bet = m.bets?.some((c) => c.amount === state.bet) ? state.bet : 0;
+        if (m.locked == null) state.bet = m.bets?.some((c) => c.amount === state.bet) ? state.bet : null;
         if (state.me) { state.me.score = m.balance ?? state.me.score; state.me.streak = m.streak ?? 0; }
         state.hint = m.hint;
         if (state.me) state.me.hintsLeft = m.hintsLeft;
@@ -183,13 +183,28 @@ export function mountPlayer(root, opts = {}) {
   function pick(letter) {
     if (state.locked != null || !state.open) return;
     state.selected = letter;
+    state.pop = `[data-pick="${letter}"]`;
     buzz(10);
     render();
   }
 
   function lockIn() {
     if (!state.open || state.selected == null || state.locked != null) return;
-    net.send({ t: 'answer', n: state.open.question.n, value: state.selected, bet: state.open.question.kind === 'number' ? 0 : state.bet });
+    if (needsBet() && state.bet == null) return;
+    net.send({ t: 'answer', n: state.open.question.n, value: state.selected, bet: state.open.question.kind === 'number' ? 0 : state.bet ?? 0 });
+  }
+
+  function needsBet() {
+    return !!(state.open && state.open.question.kind !== 'number' && state.open.bets?.length);
+  }
+
+  // Lock in says what is still missing, then what is at stake.
+  function lockLabel() {
+    const q = state.open.question;
+    if (q.kind === 'number') return 'Lock in';
+    if (state.selected == null) return 'Pick one';
+    if (needsBet() && state.bet == null) return 'Choose a bet';
+    return state.bet ? `Lock in ${short(state.bet)}` : 'Lock in';
   }
 
   function useHint() {
@@ -199,9 +214,55 @@ export function mountPlayer(root, opts = {}) {
 
   // ---------- render ----------
   let timerRaf = 0;
+  // Redraws keep keyboard focus where it was. A new screen moves focus to
+  // its heading, so screen readers announce what changed.
+  let shownHint = null;
+
+  // Header money counts to its new value instead of jumping.
+  const tally = { shown: null, from: 0, to: 0, t0: 0, raf: 0 };
+  const calm = matchMedia('(prefers-reduced-motion: reduce)');
+  function animateScore() {
+    const box = $('.ph .xp', root);
+    if (!box || !state.me) { tally.shown = null; return; }
+    const target = state.me.score;
+    if (tally.shown == null || calm.matches) { tally.shown = tally.to = target; return; }
+    if (target !== tally.to) {
+      tally.from = tally.shown; tally.to = target; tally.t0 = performance.now();
+      tally.dir = target > tally.from ? 'up' : 'down';
+    }
+    if (tally.shown === tally.to) return;
+    box.classList.add(tally.dir);
+    cancelAnimationFrame(tally.raf);
+    const step = () => {
+      const t = Math.min(1, (performance.now() - tally.t0) / 1100);
+      tally.shown = Math.round(tally.from + (tally.to - tally.from) * (1 - (1 - t) ** 3));
+      const b = $('.ph .xp b', root);
+      if (b) b.textContent = money(tally.shown);
+      if (t < 1) tally.raf = requestAnimationFrame(step);
+      else $('.ph .xp', root)?.classList.remove('up', 'down');
+    };
+    step();
+  }
+
+  function focusKey() {
+    const a = document.activeElement;
+    if (!a || !root.contains(a)) return null;
+    const d = a.dataset || {};
+    if (d.pick) return `[data-pick="${d.pick}"]`;
+    if (d.bet) return `[data-bet="${d.bet}"]`;
+    if (d.act) return `[data-act="${d.act}"]`;
+    if (d.n) return `[data-n="${d.n}"]`;
+    return a.id ? `#${a.id}` : null;
+  }
+
   function render() {
     cancelAnimationFrame(timerRaf);
-    root.className = `he-player v-${state.view}`;
+    const prevView = root.dataset.view;
+    const key = focusKey();
+    root.dataset.view = state.view;
+    // "fresh" plays the entrance only when the screen changes, not on every tap.
+    const fresh = prevView !== state.view;
+    root.className = `he-player v-${state.view}${fresh ? ' fresh' : ''}`;
     root.innerHTML = `
       ${state.me ? header() : ''}
       <main class="pv">${body()}</main>
@@ -210,12 +271,30 @@ export function mountPlayer(root, opts = {}) {
     bind();
     renderStatus();
     if (state.view === 'answer') tick();
+    if (state.pop) { root.querySelector(state.pop)?.classList.add('pop'); state.pop = null; }
+    const hint = $('.hinttext', root);
+    if (hint && state.hint !== shownHint) hint.classList.add('new');
+    shownHint = state.hint;
+    animateScore();
+    if (key && prevView === state.view) root.querySelector(key)?.focus({ preventScroll: true });
+    else if (prevView && prevView !== state.view && state.view !== 'join') {
+      const h = root.querySelector('main h2, main h1, main .q');
+      if (h) { h.tabIndex = -1; h.focus({ preventScroll: true }); }
+    }
+  }
+
+  // Dark letters on light colours, white on dark ones.
+  function initialInk(hex) {
+    const n = parseInt(String(hex).slice(1), 16);
+    const lin = (c) => { c /= 255; return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; };
+    const l = 0.2126 * lin(n >> 16) + 0.7152 * lin((n >> 8) & 255) + 0.0722 * lin(n & 255);
+    return l > 0.2 ? 'var(--ink)' : '#fff';
   }
 
   function header() {
     const m = state.me;
     return `<header class="ph">
-      <span class="avatar" style="--c:${m.color}">${esc(Array.from(m.name)[0] || '?').toUpperCase()}</span>
+      <span class="avatar" style="--c:${m.color};color:${initialInk(m.color)}">${esc(Array.from(m.name)[0] || '?').toUpperCase()}</span>
       <span class="who">${esc(m.name)}</span>
       <span class="xp"><b>${money(m.score)}</b></span>
       <button class="leave" data-act="leave" aria-label="Leave the game">Leave</button>
@@ -237,13 +316,13 @@ export function mountPlayer(root, opts = {}) {
         </form>`;
       case 'lobby': return `
         <section class="center">
-          <div class="big-avatar" style="--c:${state.me.color}">${esc(Array.from(state.me.name)[0] || '?').toUpperCase()}</div>
+          <div class="big-avatar" style="--c:${state.me.color};color:${initialInk(state.me.color)}">${esc(Array.from(state.me.name)[0] || '?').toUpperCase()}</div>
           <h2>You're in.</h2>
           <p>Find your name on the big screen. The game starts once everyone has joined.</p>
         </section>`;
       case 'roundIntro': return `
         <section class="center">
-          <p class="kicker">Round ${esc(s.round)}</p>
+          <p class="kicker">Round ${esc(s.round)}${s.roundInfo?.theme ? ` · ${esc(s.roundInfo.theme)}` : ''}</p>
           <h2>${esc(s.roundInfo?.name)}</h2>
           <p>${esc(s.roundInfo?.tagline)}</p>
           <p class="pill">Bet up to 50% of your money</p>
@@ -319,7 +398,7 @@ export function mountPlayer(root, opts = {}) {
     const o = state.open;
     const q = o.question;
     const hintBtn = q.hasHint
-      ? `<button class="btn hint" data-act="hint" ${state.hint || state.me.hintsLeft <= 0 ? 'disabled' : ''}>${ICON.bulb}<span>${state.hint ? 'Hint shown' : 'Use a hint'}</span><small class="lives" aria-label="${state.me.hintsLeft} of 2 hints left">${[0, 1].map((i) => `<i class="${i < state.me.hintsLeft ? 'on' : ''}"></i>`).join('')}</small></button>`
+      ? `<button class="btn hint" data-act="hint" aria-label="${state.hint ? 'Hint shown' : `Use a hint, ${state.me.hintsLeft} of 2 left`}" ${state.hint || state.me.hintsLeft <= 0 ? 'disabled' : ''}>${ICON.bulb}<span>Hint</span><small class="lives" aria-label="${state.me.hintsLeft} of 2 hints left">${[0, 1].map((i) => `<i class="${i < state.me.hintsLeft ? 'on' : ''}"></i>`).join('')}</small></button>`
       : '';
     let choices;
     if (q.kind === 'number') {
@@ -348,7 +427,7 @@ export function mountPlayer(root, opts = {}) {
         </div>` : ''}
         <div class="actions">
           ${hintBtn}
-          <button class="btn primary lockin" data-act="lock" ${state.selected == null && q.kind !== 'number' ? 'disabled' : ''}>${ICON.lock}<span>Lock in</span></button>
+          <button class="btn primary lockin" data-act="lock" ${(state.selected == null || (needsBet() && state.bet == null)) && q.kind !== 'number' ? 'disabled' : ''}>${ICON.lock}<span>${lockLabel()}</span></button>
         </div>
       </section>`;
   }
@@ -368,7 +447,7 @@ export function mountPlayer(root, opts = {}) {
     return `<section class="center res ${ok ? 'ok' : 'no'}">
       <span class="mark">${ok ? ICON.check : ICON.cross}</span>
       <h2>${ok ? 'Correct' : r.value == null ? "Time's up" : 'Not quite'}</h2>
-      ${ok ? `<p class="pill gain">${r.bet ? `+${money(r.bet)}` : 'No bet placed'}</p>` : `<p>The answer was <b>${esc(labelFor(r.answer))}</b>.</p>${r.bet ? `<p class="pill loss">${money(-r.bet)}</p>` : ''}`}
+      ${ok ? `<p class="pill gain">${r.bet ? `+${money(r.bet)}` : 'No bet placed'}</p>` : `<p>The answer was <b>${esc(labelFor(r.answer))}</b>.</p>${r.gained < 0 ? `<p class="pill loss">${money(r.gained)}</p>` : r.bet ? '<p class="pill">Nothing lost</p>' : ''}`}
       ${r.streakBonus ? `<p class="streak">Three in a row. Bonus +${money(r.streakBonus)}</p>` : ok && r.streak ? `<p class="fine">${r.streak} right in a row with a bet. Three pays a $50,000 bonus.</p>` : ''}
       <p class="expl">${esc(r.explanation)}</p>
     </section>`;
@@ -383,7 +462,7 @@ export function mountPlayer(root, opts = {}) {
       if (state.open?.question.kind === 'number' && state.selected == null) state.selected = Number($('#num', root).value);
       lockIn();
     });
-    root.querySelectorAll('[data-bet]').forEach((btn) => btn.addEventListener('click', () => { state.bet = Number(btn.dataset.bet); buzz(10); render(); }));
+    root.querySelectorAll('[data-bet]').forEach((btn) => btn.addEventListener('click', () => { state.bet = Number(btn.dataset.bet); state.pop = `[data-bet="${btn.dataset.bet}"]`; buzz(10); render(); }));
     const hint = $('[data-act="hint"]', root);
     if (hint) hint.addEventListener('click', useHint);
     const leave = $('[data-act="leave"]', root);

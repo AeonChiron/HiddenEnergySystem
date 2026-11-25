@@ -4,18 +4,21 @@
 :root {
   --ink: #13282b;
   --ink-2: #3d5457;
-  --ink-3: #7b8c8c;
+  --ink-3: #5f7171; /* 5.1:1 on white */
   --paper: #ffffff;
   --board: #ffffff;
   --ivory: #f6efdf;
   --ivory-d: #e6dac0;
   --line: #e3e7e2;
+  /* motion */
+  --spring-pop: cubic-bezier(.2, 1.6, .4, 1); --spring: cubic-bezier(.2, 1.3, .4, 1);
+  --ease-out: cubic-bezier(.2, 1, .3, 1); --ease-exit: cubic-bezier(.6, 0, .8, .4);
   --teal: #1d5e5f; --teal-d: #123f40; --teal-l: #5f9c98; --teal-xl: #e3efec;
   --sage: #94ae96; --sage-d: #5f7d66; --sage-xl: #eef3ec;
   --orange: #c45a2c; --orange-d: #8f3b1a; --orange-xl: #f8e4d6;
   --ochre: #d39b2e; --ochre-l: #ecc878;
-  --A: #1d5e5f; --B: #c45a2c; --C: #d39b2e; --D: #5f7d66; --E: #13282b;
-  --A-fg: #fff; --B-fg: #fff; --C-fg: #13282b; --D-fg: #fff; --E-fg: #fff;
+  --A: #1d5e5f; --B: #c45a2c; --C: #d39b2e; --D: #5f7d66; --ALL: #13282b;
+  --A-fg: #fff; --B-fg: #fff; --C-fg: #13282b; --D-fg: #fff; --ALL-fg: #fff;
   --HIGH: #c45a2c; --LOW: #1d5e5f;
   --good: #1d5e5f; --good-bg: #e3efec; --bad: #c45a2c;
   --radius: 22px;
@@ -29,7 +32,7 @@ input { font: inherit; color: inherit; }
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: .5em; border: 2px solid var(--ink); background: var(--paper); border-radius: 999px; padding: .8em 1.4em; font-weight: 700; text-decoration: none; color: var(--ink); }
 .btn.primary { background: var(--teal); border-color: var(--teal); color: #fff; }
 .btn:disabled { opacity: .4; cursor: default; }
-:focus-visible { outline: 3px solid var(--ochre); outline-offset: 3px; }
+:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
 
 /* Logo: slow turn with momentum (ease in, coast, a tiny overshoot, settle) */
 .he-logo { display: block; width: 100%; height: 100%; aspect-ratio: 1; }
