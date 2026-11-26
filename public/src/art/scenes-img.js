@@ -24,7 +24,7 @@ const DEPTH = new Set(["abnormalCells", "autophagosome", "brainPlaques", "butter
 
 // Seed (Nov 26): these read better as the whole picture with a plain slow zoom,
 // no cut-out layer and no sideways drift.
-const ZOOM_ONLY = new Set(['round1', 'sugarPileUp', 'donutShield', 'hungerMeter', 'autophagosome', 'glucoseCells', 'proteinFlood', 'napPlates']);
+const ZOOM_ONLY = new Set(['round1', 'sugarPileUp', 'donutShield', 'hungerMeter', 'autophagosome', 'glucoseCells', 'proteinFlood', 'napPlates', 'emptyBattery']);
 ZOOM_ONLY.forEach((id) => DEPTH.delete(id));
 // Zoom from an edge so a detail near that edge stays in frame (an ear, see art.css).
 const KEEP_EDGE = new Set(['timelinesEqual', 'mouseMaze']);
