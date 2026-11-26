@@ -52,7 +52,7 @@ export const QUESTIONS = [
     hint: 'Banana, granola and honey are all sugar or starch.',
     reveal: {
       headline: 'High carb',
-      text: 'Banana, granola and honey are all carbs. A bowl can look healthy and still be full of sugar and starch.',
+      text: 'Banana, granola and honey are all carbs.',
       callouts: ['Banana', 'Granola', 'Honey'],
     },
   },
@@ -66,7 +66,7 @@ export const QUESTIONS = [
     hint: "There's no bun. Meat, cheese and bacon have almost no carbs.",
     reveal: {
       headline: 'Low carb',
-      text: 'The lettuce takes the place of the bun. Beef, bacon, cheese and mayo have almost no carbs.',
+      text: 'No bun. Beef, bacon and cheese have almost no carbs.',
       callouts: ['No bun here', 'Lettuce wrap'],
     },
   },
@@ -80,7 +80,7 @@ export const QUESTIONS = [
     hint: 'Quinoa, chickpeas and sweet potato are all starchy.',
     reveal: {
       headline: 'High carb',
-      text: 'Quinoa, chickpeas and sweet potato are all full of starch. Only the avocado is low carb.',
+      text: 'Quinoa, chickpeas and sweet potato are all starch.',
       callouts: ['Quinoa', 'Chickpeas', 'Sweet potato'],
     },
   },
@@ -94,7 +94,7 @@ export const QUESTIONS = [
     hint: 'That rice is cauliflower, not real rice.',
     reveal: {
       headline: 'Low carb',
-      text: 'Normal rice is mostly starch. This rice is cauliflower, which has very few carbs, so the dish is low carb.',
+      text: 'The rice is cauliflower, so it has very few carbs.',
       callouts: ['Garlic herb chicken', 'Cauliflower rice', 'Parsley'],
     },
   },
