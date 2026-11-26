@@ -113,7 +113,7 @@ export const QUESTIONS = [
     hint: "Insulin's job is to get sugar out of your blood and into your cells to use for energy.",
     reveal: {
       scene: 'revealInsulin',
-      text: 'Insulin is the signal that food has arrived. It helps your cells take in sugar (glucose) and turn it into energy, now or later.',
+      text: 'Insulin helps your cells turn sugar into energy.',
     },
   },
   {
@@ -129,7 +129,7 @@ export const QUESTIONS = [
     hint: 'Resistant means insulin works less well, so keeping blood sugar steady gets harder.',
     reveal: {
       scene: 'revealResistance',
-      text: 'Your cells stop listening to insulin, so your body has to make more of it. When it can\'t keep up, blood sugar rises.',
+      text: 'Your cells ignore insulin, so blood sugar rises.',
     },
   },
   {
@@ -145,7 +145,7 @@ export const QUESTIONS = [
     hint: 'Ketones are made from fat. Only one answer is true.',
     reveal: {
       scene: 'revealKetosis',
-      text: 'When you eat very few carbs, your body runs low on sugar. So your liver turns fat into ketones, a backup fuel your brain and body can use.',
+      text: 'Low on sugar, your body turns fat into ketones for fuel.',
     },
   },
   {
@@ -161,7 +161,7 @@ export const QUESTIONS = [
     hint: 'More than one answer can be right.',
     reveal: {
       scene: 'revealAllKetosis',
-      text: "You don't only run on your last meal. Your body can also run on the energy it has already stored.",
+      text: 'All three: brain fuel, less hunger, and stored fat as energy.',
     },
   },
 
@@ -179,7 +179,7 @@ export const QUESTIONS = [
     hint: 'Think recycling: old, broken parts get taken apart and reused.',
     reveal: {
       scene: 'revealAutophagy',
-      text: 'Your cells recycle. They break down old, broken parts and reuse the pieces to build new ones.',
+      text: 'Your cells break down old parts and reuse them.',
     },
   },
   {
@@ -195,7 +195,7 @@ export const QUESTIONS = [
     hint: 'More than one answer can be right.',
     reveal: {
       scene: 'revealDiseases',
-      text: 'Three very different diseases have one thing in common: the cell\'s recycling stops working well.',
+      text: 'All three are linked to cell recycling breaking down.',
     },
   },
   {
@@ -211,7 +211,7 @@ export const QUESTIONS = [
     hint: 'Cells recycle more when food stops coming in.',
     reveal: {
       scene: 'revealScarcity',
-      text: 'When less food comes in, cells recycle more. They make the most of what they already have.',
+      text: 'Less food coming in makes your cells recycle more.',
     },
   },
   {
@@ -227,7 +227,7 @@ export const QUESTIONS = [
     hint: 'Better cell cleanup kept the mice younger for longer.',
     reveal: {
       scene: 'revealLifespan',
-      text: 'The mice lived longer. Could better cell maintenance help people age better too? Scientists are still finding out.',
+      text: 'They lived longer. Scientists are still testing this in people.',
       note: 'This was a study in mice. It does not prove that people would live longer.',
     },
   },
@@ -242,7 +242,7 @@ export const QUESTIONS = [
     hint: null, // the proposal lists hints for questions 1-12 only
     reveal: {
       scene: 'revealNinetyFour',
-      text: 'After one year, 94% of the people on insulin who stayed in the program used less insulin or none at all.',
+      text: '94% who stayed in the program cut back or stopped insulin.',
       note: 'This result does not mean that all participants were cured.',
     },
   },
