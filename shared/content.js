@@ -113,7 +113,7 @@ export const QUESTIONS = [
     hint: "Insulin's job is to get sugar out of your blood and into your cells to use for energy.",
     reveal: {
       scene: 'revealInsulin',
-      text: 'Insulin is like a key. It lets sugar into your cells so they get energy.',
+      text: 'Insulin helps your body turn the sugar in your food into energy.',
     },
   },
   {
