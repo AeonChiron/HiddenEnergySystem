@@ -271,7 +271,6 @@
 /* Framing per picture in the answer panels (Seed's notes, Nov 23). --z zooms, --o is where it zooms toward. */
 .panel .pic[data-scene="donutShield"] { --z: 1.75; --o: 82% 22%; }
 .panel .pic[data-scene="fatToKetones"] { --z: .98; --op: 50% 0%; --o: 50% 30%; }
-.panel .pic[data-scene="butterScale"] { --z: .98; --o: 46% 52%; }
 .panel .pic[data-scene="fatReserves"] { --z: 1.3; --o: 50% 58%; }
 .panel .pic[data-scene="proteinFlood"] { --z: .98; --o: 50% 55%; }
 .panel .pic[data-scene="nutrientShortage"] { --z: .98; --o: 46% 50%; }
