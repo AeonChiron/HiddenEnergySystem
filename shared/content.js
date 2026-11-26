@@ -113,7 +113,7 @@ export const QUESTIONS = [
     hint: "Insulin's job is to get sugar out of your blood and into your cells to use for energy.",
     reveal: {
       scene: 'revealInsulin',
-      text: 'Insulin helps your cells take in sugar from your food and turn it into energy.',
+      text: 'Insulin is like a key. It lets sugar into your cells so they get energy.',
     },
   },
   {
@@ -129,7 +129,7 @@ export const QUESTIONS = [
     hint: 'Resistant means insulin works less well, so keeping blood sugar steady gets harder.',
     reveal: {
       scene: 'revealResistance',
-      text: 'Your cells stop listening to insulin. Sugar builds up in your blood, raising your risk of type 2 diabetes.',
+      text: 'Your cells stop listening to insulin, so sugar piles up in your blood.',
     },
   },
   {
@@ -145,7 +145,7 @@ export const QUESTIONS = [
     hint: 'Ketones are made from fat. Only one answer is true.',
     reveal: {
       scene: 'revealKetosis',
-      text: 'With very few carbs, your body runs low on sugar. So it turns fat into ketones, a backup fuel.',
+      text: 'With almost no sugar, your body burns fat and makes ketones, a backup fuel.',
     },
   },
   {
@@ -161,7 +161,7 @@ export const QUESTIONS = [
     hint: 'More than one answer can be right.',
     reveal: {
       scene: 'revealAllKetosis',
-      text: "Ketones feed your brain, calm your hunger and let your body use stored fat. That's all three.",
+      text: 'All three! Ketones feed your brain, keep you full, and burn stored fat.',
     },
   },
 
@@ -179,7 +179,7 @@ export const QUESTIONS = [
     hint: 'Think recycling: old, broken parts get taken apart and reused.',
     reveal: {
       scene: 'revealAutophagy',
-      text: 'Your cells clean house. They break down old, damaged parts and reuse them to build new ones.',
+      text: 'Your cells take apart old, broken pieces and reuse them, like recycling.',
     },
   },
   {
@@ -195,7 +195,7 @@ export const QUESTIONS = [
     hint: 'More than one answer can be right.',
     reveal: {
       scene: 'revealDiseases',
-      text: "Alzheimer's, cancer and type 2 diabetes have all been linked to cell recycling not working well.",
+      text: 'All three are linked to cells that stop cleaning up after themselves.',
     },
   },
   {
@@ -211,7 +211,7 @@ export const QUESTIONS = [
     hint: 'Cells recycle more when food stops coming in.',
     reveal: {
       scene: 'revealScarcity',
-      text: 'Fasting means less food coming in, so your cells recycle more of what they already have.',
+      text: 'When you eat less, your cells clean up and recycle more.',
     },
   },
   {
@@ -227,7 +227,7 @@ export const QUESTIONS = [
     hint: 'Better cell cleanup kept the mice younger for longer.',
     reveal: {
       scene: 'revealLifespan',
-      text: 'The mice lived longer. Scientists are still studying whether the same could work in people.',
+      text: 'The mice lived longer. Scientists are still checking if it works for people.',
       note: 'This was a study in mice. It does not prove that people would live longer.',
     },
   },
@@ -242,7 +242,7 @@ export const QUESTIONS = [
     hint: null, // the proposal lists hints for questions 1-12 only
     reveal: {
       scene: 'revealNinetyFour',
-      text: 'After one year, 94% of people on insulin who stayed in the program cut back or stopped it.',
+      text: '94 out of 100 people who stayed in the program needed less insulin or none.',
       note: 'This result does not mean that all participants were cured.',
     },
   },
