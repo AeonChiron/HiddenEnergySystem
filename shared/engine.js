@@ -331,7 +331,7 @@ export class Hub {
       locked: a ? a.value : null,
       lockedBet: a ? a.bet : null,
       balance: p.score, streak: p.streak,
-      bets: q.kind === 'number' ? [] : betChoices(p.score),
+      bets: q.kind === 'number' ? [] : betChoices(p.score, q.round),
     };
   }
 
@@ -346,7 +346,7 @@ export class Hub {
       v = Math.max(q.min, Math.min(q.max, v));
     } else if (!q.options.some((o) => o.letter === v)) return;
     const b = q.kind === 'number' ? 0 : Number(bet) || 0;
-    if (b && !betOptions(p.score).includes(b)) return p.conn?.send({ t: 'bet:error', message: "That bet isn't available. Pick another amount." });
+    if (b && !betOptions(p.score, q.round).includes(b)) return p.conn?.send({ t: 'bet:error', message: "That bet isn't available. Pick another amount." });
     p.answers[q.n] = { value: v, bet: b, at: this.now() - (room.open.deadline - this.answerMs) };
     p.conn?.send({ t: 'locked', n: q.n, value: v, bet: b });
     this.sendProgress(room);
@@ -534,7 +534,7 @@ export class Hub {
         if (q.kind === 'number') value = Math.round(Math.max(0, Math.min(100, 94 - 40 * this.random() + 25 * this.random())));
         else if (this.random() < p.skill) value = q.answer;
         else { const wrong = q.options.filter((o) => o.letter !== q.answer); value = wrong[Math.floor(this.random() * wrong.length)].letter; }
-        const opts = betOptions(p.score);
+        const opts = betOptions(p.score, q.round);
         const bet = q.kind === 'number' ? 0 : opts[Math.min(opts.length - 1, Math.floor(this.random() * (opts.length + 1)))];
         this.answer(room, p, { n: q.n, value, bet });
   }

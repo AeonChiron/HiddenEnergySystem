@@ -36,5 +36,5 @@ export function art(id) {
 
 export function foodArt(food) {
   const src = (globalThis.HE_IMG && globalThis.HE_IMG[food]) || `/img/food/${food}.webp`;
-  return `<img class="food-photo" src="${src}" alt="" draggable="false">`;
+  return `<img class="food-photo" data-food="${food}" src="${src}" alt="" draggable="false">`;
 }

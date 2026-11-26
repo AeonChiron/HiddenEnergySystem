@@ -22,9 +22,16 @@ export const imgSrc = (id) => (globalThis.HE_IMG && globalThis.HE_IMG[`art/${id}
 // The single-file preview has no layers and keeps the flat picture.
 const DEPTH = new Set(["abnormalCells", "autophagosome", "brainPlaques", "butterScale", "cellDivide", "donutShield", "emptyBattery", "fatReserves", "fatToKetones", "glucoseCells", "hungerMeter", "ketoneBrain", "napPlates", "nutrientShortage", "proteinFlood", "revealAllKetosis", "revealDiseases", "revealInsulin", "revealKetosis", "revealLifespan", "revealResistance", "revealScarcity", "round1", "round2", "stomachFull", "sugarBarrier", "sugarIntoCells", "sugarPileUp", "timelinesEqual"]);
 
+// Seed (Nov 26): these read better as the whole picture with a plain slow zoom,
+// no cut-out layer and no sideways drift.
+const ZOOM_ONLY = new Set(['round1', 'sugarPileUp', 'donutShield', 'hungerMeter', 'autophagosome', 'glucoseCells', 'proteinFlood', 'napPlates']);
+ZOOM_ONLY.forEach((id) => DEPTH.delete(id));
+// Zoom from an edge so a detail near that edge stays in frame (an ear, see art.css).
+const KEEP_EDGE = new Set(['timelinesEqual', 'mouseMaze']);
+
 function pic(id, i) {
   const big = id.startsWith('reveal') || id.startsWith('round') || id === 'lobby';
-  const move = MOVES[i % MOVES.length];
+  const move = ZOOM_ONLY.has(id) || KEEP_EDGE.has(id) ? 'in' : MOVES[i % MOVES.length];
   if (DEPTH.has(id) && !globalThis.HE_IMG && !globalThis.HE_LITE) { // phones: one flat picture, half the memory
     // If a layer fails to load, fall back to the flat picture.
     const flat = `this.closest('.pic').classList.remove('depth');this.closest('.pic').querySelector('.fg')?.remove();this.onerror=null;this.src='${imgSrc(id)}'`;

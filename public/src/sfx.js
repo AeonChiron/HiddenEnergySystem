@@ -104,6 +104,12 @@ const AIR = {
   puff(k = 1) {
     air({ dur: R(0.14, 0.22), lo: R(900, 1400) * k, hi: R(2600, 3800) * k, end: R(1500, 2000) * k, q: R(1.2, 2), gain: 0.22, peak: 0.3, pan: 0.3 * side() });
   },
+  // Chips clacking: two dry clicks, a little brighter with each doubling (noise, not notes).
+  chip(i = 1) {
+    const k = 1 + Math.min(i, 6) * 0.1;
+    air({ dur: 0.035, lo: 3000 * k, hi: 3500 * k, q: 4, gain: 0.3, peak: 0.06, type: "bandpass" });
+    air({ dur: 0.045, lo: 2300 * k, hi: 2700 * k, q: 4, gain: 0.22, peak: 0.1, type: "bandpass", at: R(0.04, 0.06) });
+  },
   tick(s = 5) {
     const tock = s % 2 === 0;
     air({ dur: 0.05, lo: tock ? 2600 : 3800, hi: tock ? 2800 : 4200, q: 3, gain: 0.2 + (5 - s) * 0.05, peak: 0.08, type: 'bandpass' });
@@ -123,6 +129,7 @@ const AIRED = {
   discovery: () => AIR.gust(),
   bonusIntro: () => AIR.gust(1.25),
   tick: (s) => AIR.tick(s),
+  bet: (i = 1) => AIR.chip(i),
   line: (i = 0) => AIR.puff(1 + i * 0.06),
   next: () => AIR.swish(1, 0.8),
   back: () => AIR.swish(-1, 0.8),
@@ -159,9 +166,11 @@ function players() {
 function playCue(v) {
   if (!v) return false;
   const [pack, cue, volume, rate = 1] = v;
-  try { return !!players()?.[pack]?.play(cue, { volume, playbackRate: rate * R(0.97, 1.03), retrigger: 'overlap' }); } catch { return false; }
+  try { return !!players()?.[pack]?.play(cue, { volume: volume * SFX_LEVEL / 0.8, playbackRate: rate * R(0.97, 1.03), retrigger: 'overlap' }); } catch { return false; }
 }
 let muted = false;
+// Overall effects level. Seed (Nov 26): effects were overpowering the music; 0.8 -> 0.5.
+const SFX_LEVEL = 0.5;
 const buffers = {};
 
 export function unlockAudio() {
@@ -170,7 +179,7 @@ export function unlockAudio() {
     if (!AC) return;
     ctx = new AC();
     master = ctx.createGain();
-    master.gain.value = 0.8;
+    master.gain.value = SFX_LEVEL;
     const comp = ctx.createDynamicsCompressor();
     comp.threshold.value = -14;
     comp.ratio.value = 4;
@@ -181,7 +190,7 @@ export function unlockAudio() {
   if (ctx.state === 'suspended') ctx.resume();
 }
 
-export function setMuted(m) { muted = m; if (master) master.gain.value = m ? 0 : 0.8; if (packs) Object.values(packs).forEach((p) => p.setEnabled(!m)); }
+export function setMuted(m) { muted = m; if (master) master.gain.value = m ? 0 : SFX_LEVEL; if (packs) Object.values(packs).forEach((p) => p.setEnabled(!m)); }
 export function isMuted() { return muted; }
 
 // Optional recorded sounds: /sfx/manifest.json lists names, e.g. ["whoosh","pop"].

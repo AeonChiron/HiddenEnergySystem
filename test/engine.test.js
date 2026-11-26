@@ -69,19 +69,21 @@ test('duplicate nicknames get a number, bad codes and blank names are refused', 
   assert.equal(host.last('players').list.length, 2);
 });
 
-test('betting: win or lose a share of your money, streak bonus every 3 in a row with bets', () => {
-  assert.deepEqual(betOptions(100_000), [0, 10_000, 15_000, 25_000, 50_000]);
-  assert.deepEqual(betOptions(60_000), [0, 6_000, 9_000, 15_000, 30_000]);
-  assert.deepEqual(betOptions(3_000), [0, 1_000]);
+test('betting: a doubling chip capped per round, streak bonus every 3 in a row with bets', () => {
+  assert.deepEqual(betOptions(100_000, 1), [0, 10_000, 20_000, 40_000]);
+  assert.deepEqual(betOptions(100_000, 2), [0, 10_000, 20_000, 40_000, 80_000]);
+  assert.deepEqual(betOptions(100_000, 3), [0, 10_000, 20_000, 40_000, 80_000]);
+  assert.deepEqual(betOptions(300_000, 3), [0, 10_000, 20_000, 40_000, 80_000, 160_000]);
+  assert.deepEqual(betOptions(3_000, 1), [0, 10_000]);
   const { hub, host, players, clock } = setup(2);
   const [a, b] = players;
   assert.equal(a.last('joined').score, START_MONEY);
-  // Q5 right with 25%, Q6 right with no bet (a streak needs a bet, so it breaks),
-  // then Q7 (50%), Q8 (10%) and Q9 (15%) right: three in a row pays 50K.
+  // Q5 right with 40K, Q6 right with no bet (a streak needs a bet, so it breaks),
+  // then Q7 (80K), Q8 (10K) and Q9 (20K) right: three in a row pays 100K.
   const plays = [[5, 3], [6, 0], [7, 4], [8, 1], [9, 2]];
   let aScore = START_MONEY, bScore = START_MONEY;
   for (const [n, idx] of plays) {
-    const bet = betOptions(aScore)[idx], bBet = betOptions(bScore)[1];
+    const r = QUESTIONS[n - 1].round, bet = betOptions(aScore, r)[idx], bBet = betOptions(bScore, r)[1];
     hub.handle(host, { t: 'host:open', n });
     hub.handle(a, { t: 'answer', n, value: QUESTIONS[n - 1].answer, bet });
     hub.handle(b, { t: 'answer', n, value: 'C', bet: bBet });
@@ -89,11 +91,11 @@ test('betting: win or lose a share of your money, streak bonus every 3 in a row 
     aScore += bet; bScore -= bBet;
     if (n === 7) assert.equal(a.last('result').streakBonus, 0);
   }
-  assert.equal(a.last('result').streakBonus, 50_000);
-  assert.equal(a.last('result').score, aScore + 50_000);
-  assert.equal(a.last('result').score, 285_000);
-  assert.equal(b.last('result').score, 60_000);
-  // A bet that is not one of the offered shares is refused.
+  assert.equal(a.last('result').streakBonus, 100_000);
+  assert.equal(a.last('result').score, aScore + 100_000);
+  assert.equal(a.last('result').score, 350_000);
+  assert.equal(b.last('result').score, 50_000);
+  // A bet that is not on the chip ladder is refused.
   hub.handle(host, { t: 'host:open', n: 10 });
   hub.handle(b, { t: 'answer', n: 10, value: 'A', bet: 50_000 });
   assert.equal(b.last('bet:error').t, 'bet:error');
@@ -204,13 +206,13 @@ test('bonus: a perfect tie pays everyone tied', () => {
 test('a phone that reloads rejoins with the same score', () => {
   const { hub, host, players, code, clock } = setup(1);
   hub.handle(host, { t: 'host:open', n: 9 });
-  hub.handle(players[0], { t: 'answer', n: 9, value: 'B', bet: 25_000 });
+  hub.handle(players[0], { t: 'answer', n: 9, value: 'B', bet: 20_000 });
   clock.advance(1000);
   const token = players[0].last('joined').token;
   hub.drop(players[0]);
   const again = client();
   hub.handle(again, { t: 'join', code, token });
-  assert.equal(again.last('joined').score, 125_000);
+  assert.equal(again.last('joined').score, 120_000);
   assert.equal(again.last('joined').rejoined, true);
   assert.equal(host.last('players').list.length, 1);
 });
@@ -279,7 +281,7 @@ test('pause holds the answer timer and resumes with the time that was left', () 
 
 test('a broke player gets a comeback bet that never takes them below $0', async () => {
   const { betChoices, COMEBACK_BET } = await import('../shared/content.js');
-  assert.deepEqual(betChoices(0).map((c) => c.amount), [0, COMEBACK_BET]);
-  assert.ok(betChoices(0)[1].comeback);
-  assert.ok(!betChoices(100000).some((c) => c.comeback));
+  assert.deepEqual(betChoices(0, 1).map((c) => c.amount), [0, COMEBACK_BET]);
+  assert.ok(betChoices(0, 1)[1].comeback);
+  assert.ok(!betChoices(100000, 1).some((c) => c.comeback));
 });

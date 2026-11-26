@@ -684,7 +684,7 @@ export function mountHost(root, opts = {}) {
 
   function statsLine(res) {
     return res.answeredCount
-      ? `${res.correctCount} of ${res.answeredCount} got it right${res.wonTotal ? ` · $${fmt(res.wonTotal)} won in bets` : ''}`
+      ? `${res.correctCount} of ${res.answeredCount} got it right`
       : 'Nobody answered this one.';
   }
 
@@ -818,7 +818,7 @@ export function mountHost(root, opts = {}) {
     fill('s3', list[2]); fill('s2', list[1]); fill('s1', list[0]);
     const lines = (p) => [
       `<b>${p.right}</b> of 12 answers right`,
-      p.streaks ? `<b>${p.streaks}</b> streak bonus${p.streaks > 1 ? 'es' : ''} · +$${fmt(p.streaks * 50000)}` : 'No streak bonus this time',
+      p.streaks ? `<b>${p.streaks}</b> streak bonus${p.streaks > 1 ? 'es' : ''} · +$${fmt(p.streaks * 100000)}` : 'No streak bonus this time',
       p.bonusWon ? 'Closest on the bonus question · <b>+$300,000</b>' : p.hints ? `${p.hints} hint${p.hints > 1 ? 's' : ''} used` : 'No hints used',
     ];
     async function spotlight(p, place, nameFirst) {

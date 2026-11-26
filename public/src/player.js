@@ -9,6 +9,7 @@ const $ = (sel, el = document) => el.querySelector(sel);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fmt = (n) => Number(n || 0).toLocaleString('en-US');
 const money = (n) => `${n < 0 ? '−' : ''}$${fmt(Math.abs(n))}`;
+const BET_CAPS = { 1: 40000, 2: 80000, 3: 160000 }; // mirrors shared/content.js
 const short = (n) => (n >= 1000 ? `$${fmt(n / 1000)}K` : `$${fmt(n)}`);
 
 const ICON = {
@@ -107,7 +108,8 @@ export function mountPlayer(root, opts = {}) {
         state.locked = m.locked;
         state.selected = m.locked;
         state.lockedBet = m.lockedBet;
-        if (m.locked == null) state.bet = m.bets?.some((c) => c.amount === state.bet) ? state.bet : null;
+        // The chip starts at its first step ($10K, or the comeback bet), so one tap on an answer and Lock in is enough.
+        if (m.locked == null) state.bet = m.bets?.some((c) => c.amount === state.bet) ? state.bet : (m.bets?.[1]?.amount ?? null);
         if (state.me) { state.me.score = m.balance ?? state.me.score; state.me.streak = m.streak ?? 0; }
         state.hint = m.hint;
         if (state.me) state.me.hintsLeft = m.hintsLeft;
@@ -281,6 +283,30 @@ export function mountPlayer(root, opts = {}) {
     render();
   }
 
+  // The bet chip: one casino chip and a x2 button that doubles it up the round's ladder.
+  function chipBar(o) {
+    const ladder = o.bets.map((c) => c.amount);
+    const v = state.bet ?? 0, i = ladder.indexOf(v), top = ladder[ladder.length - 1];
+    const comeback = o.bets.some((c) => c.comeback);
+    const stack = Math.max(0, i);
+    return `<div class="chipbar">
+      <button class="nobet ${v === 0 ? 'sel' : ''}" data-act="nobet" aria-pressed="${v === 0}">No bet</button>
+      <button class="casino ${v ? '' : 'off'}" data-act="chip" aria-label="Your bet: ${v ? money(v) : 'no bet'}" style="--n:${stack}">${'<i></i>'.repeat(Math.min(stack, 5))}<b>${v ? short(v) : '$0'}</b></button>
+      <button class="dbl" data-act="double" ${v >= top || comeback && v ? 'disabled' : ''} aria-label="Double your bet">&times;2</button>
+    </div>
+    <p class="fine chipcap">${comeback ? '' : `Up to ${short(top)} this round`}</p>`;
+  }
+
+  function stepBet(dir) {
+    const ladder = state.open.bets.map((c) => c.amount);
+    const i = Math.max(0, ladder.indexOf(state.bet ?? 0));
+    const j = dir === 'reset' ? 0 : dir === 'chip' ? (i === 0 ? 1 : i) : Math.min(ladder.length - 1, i + 1);
+    if (ladder[j] === state.bet && dir !== 'reset') return;
+    state.bet = ladder[j];
+    state.pop = '.casino';
+    buzz(10); sfx('bet', j); render();
+  }
+
   function lockIn() {
     if (!state.open || state.selected == null || state.locked != null) return;
     if (needsBet() && state.bet == null) return;
@@ -306,7 +332,7 @@ export function mountPlayer(root, opts = {}) {
   }
 
   // ---------- render ----------
-  let timerRaf = 0;
+  let timerRaf = 0, nudgedOn = 0;
   // Redraws keep keyboard focus where it was. A new screen moves focus to
   // its heading, so screen readers announce what changed.
   let shownHint = null;
@@ -442,7 +468,7 @@ export function mountPlayer(root, opts = {}) {
           <p class="kicker">Round ${esc(s.round)}${s.roundInfo?.theme ? ` · ${esc(s.roundInfo.theme)}` : ''}</p>
           <h2>${esc(s.roundInfo?.name)}</h2>
           <p>${esc(s.roundInfo?.tagline)}</p>
-          <p class="pill">Bet up to 50% of your money</p>
+          <p class="pill">Bet up to ${short(BET_CAPS[s.round] || 40000)} on each answer</p>
         </section>`;
       case 'watch': return online() ? onlineWatch(s) : `
         <section class="center watch">
@@ -513,8 +539,8 @@ export function mountPlayer(root, opts = {}) {
   // The same four rules as the big screen's how-to, in the same order.
   const RULES = [
     '<b>Three rounds</b> of questions. Answer on your phone. Most money wins.',
-    'You start with <b>$100,000</b>. Bet 10, 15, 25 or 50% of it on each answer.',
-    'Get 3 right in a row, with a bet on each: <b>$50,000 bonus</b>.',
+    'You start with <b>$100,000</b>. Bet on each answer: tap <b>&times;2</b> to double your chip.',
+    'Get 3 right in a row, with a bet on each: <b>$100,000 bonus</b>.',
     '<b>2 hints</b> for the whole game. Only you see them.',
   ];
 
@@ -606,9 +632,10 @@ export function mountPlayer(root, opts = {}) {
         ${state.hint ? `<p class="hinttext">${ICON.bulb}<span>${esc(state.hint)}</span></p>` : ''}
         ${choices}
         ${q.kind !== 'number' && o.bets?.length ? `<div class="bets" role="radiogroup" aria-label="Your bet">
-          <p class="bets-head">Your bet <span>You have ${money(state.me.score)}</span></p>${o.bets.some((c) => c.comeback) ? `<p class="fine comeback-note">Low on money? Take the comeback bet. Right adds $10,000, wrong can't take you below $0, and three right in a row still wins $50,000.</p>` : ""}
-          <div class="bet-row">${o.bets.map(({ pct, amount: v, comeback }) => `<button class="bet ${state.bet === v ? 'sel' : ''}${comeback ? ' comeback' : ''}" data-bet="${v}" role="radio" aria-checked="${state.bet === v}">${comeback ? `<b>Comeback</b> <small>${short(v)}</small>` : pct === 0 ? 'No bet' : `<b>${pct}%</b> <small>${short(v)}</small>`}</button>`).join('')}</div>
+          <p class="bets-head">Your bet <span>You have ${money(state.me.score)}</span></p>${o.bets.some((c) => c.comeback) ? `<p class="fine comeback-note">Low on money? Take the comeback bet. Right adds $10,000, wrong can't take you below $0, and three right in a row still wins $100,000.</p>` : ""}
+          ${chipBar(o)}
         </div>` : ''}
+        ${q.hasHint && !state.hint && state.me.hintsLeft > 0 ? `<p class="hint-tip" aria-live="polite">Stuck? You have ${state.me.hintsLeft === 1 ? "a hint" : "2 hints"} left.</p>` : ""}
         <div class="actions">
           ${hintBtn}
           <button class="btn primary lockin" data-act="lock" ${(state.selected == null || (needsBet() && state.bet == null)) && q.kind !== 'number' ? 'disabled' : ''}>${ICON.lock}<span>${lockLabel()}</span></button>
@@ -634,7 +661,7 @@ export function mountPlayer(root, opts = {}) {
       <span class="mark">${ok ? ICON.check : ICON.cross}</span>
       <h2>${ok ? 'Correct' : r.value == null ? "Time's up" : 'Not quite'}</h2>
       ${ok ? `<p class="pill gain">${r.bet ? `+${money(r.bet)}` : 'No bet placed'}</p>` : `<p>The answer was <b>${esc(labelFor(r.answer))}</b>.</p>${r.gained < 0 ? `<p class="pill loss">${money(r.gained)}</p>` : r.bet ? '<p class="pill">Nothing lost</p>' : ''}`}
-      ${r.streakBonus ? `<p class="streak">Three in a row. Bonus +${money(r.streakBonus)}</p>` : ok && r.streak === 2 ? '<p class="streak hot">2 in a row. One more pays $50,000!</p>' : ok && r.streak ? `<p class="fine">${r.streak} right in a row with a bet. Three pays a $50,000 bonus.</p>` : ''}
+      ${r.streakBonus ? `<p class="streak">Three in a row. Bonus +${money(r.streakBonus)}</p>` : ok && r.streak === 2 ? '<p class="streak hot">2 in a row. One more pays $100,000!</p>' : ok && r.streak ? `<p class="fine">${r.streak} right in a row with a bet. Three pays a $100,000 bonus.</p>` : ''}
       <p class="expl">${esc(r.explanation)}</p>
     </section>`;
   }
@@ -656,7 +683,7 @@ export function mountPlayer(root, opts = {}) {
       if (state.open?.question.kind === 'number' && state.selected == null) state.selected = Number($('#num', root).value);
       lockIn();
     });
-    root.querySelectorAll('[data-bet]').forEach((btn) => btn.addEventListener('click', () => { state.bet = Number(btn.dataset.bet); state.pop = `[data-bet="${btn.dataset.bet}"]`; buzz(10); sfx('bet', [...root.querySelectorAll('[data-bet]')].indexOf(btn)); render(); }));
+    root.querySelectorAll('[data-act="double"], [data-act="chip"], [data-act="nobet"]').forEach((btn) => btn.addEventListener('click', () => stepBet(btn.dataset.act === 'double' ? 'up' : btn.dataset.act === 'nobet' ? 'reset' : 'chip')));
     const hint = $('[data-act="hint"]', root);
     if (hint) hint.addEventListener('click', useHint);
     const leave = $('[data-act="leave"]', root);
@@ -687,6 +714,16 @@ export function mountPlayer(root, opts = {}) {
     const s = Math.ceil(left / 1000);
     if (secs.textContent !== String(s)) secs.textContent = s;
     root.classList.toggle('hurry', left < 5000);
+    // Hint reminder (Seed, Nov 26): still stuck with a hint in hand, remind them.
+    // Last 7 seconds on any question; from the second half of the game, earlier
+    // (12 s left) if they haven't used a single hint yet.
+    const q = state.open.question, hb = $('[data-act="hint"]', root);
+    const late = q.n >= 7 && state.me?.hintsLeft >= 2;
+    const nudge = hb && !hb.disabled && state.locked == null && left > 0 && left <= (late ? 12000 : 7000);
+    if (nudge && nudgedOn !== q.n) { nudgedOn = q.n; buzz([12, 60, 12]); }
+    if (hb) hb.classList.toggle('nudge', !!nudge);
+    const tip = $('.hint-tip', root);
+    if (tip) tip.classList.toggle('on', !!nudge);
     if (left > 0 && state.heldLeft == null) timerRaf = requestAnimationFrame(tick);
   }
 

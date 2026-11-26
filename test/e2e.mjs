@@ -45,7 +45,7 @@ while (Date.now() < deadline) {
   // Phones answer whenever answering is open.
   for (const [i, { p, name }] of phones.entries()) {
     if (await p.$('.v-answer')) {
-      const key = `${name}-${await p.textContent('.answer .q')}`;
+      const key = `${name}-${await host.evaluate(() => document.querySelector('.zone.live')?.id)}-${await p.textContent('.answer .q')}`;
       if (!seen.has(key)) {
         seen.add(key);
         if (i === 0 && await p.$('[data-act="hint"]:not([disabled])')) {
@@ -54,6 +54,8 @@ while (Date.now() < deadline) {
         }
         const choices = await p.$$('[data-pick]');
         if (choices.length) await choices[(i + seen.size) % choices.length].click();
+        // Double the bet chip once or twice (the second phone keeps the default).
+        if (i === 0) for (let k = 0; k < 1 + (seen.size % 2); k++) { const d = await p.$('[data-act="double"]:not([disabled])'); if (d) await d.click(); }
         if (shot < 40 && i === 0) await p.screenshot({ path: `${OUT}/${String(shot).padStart(2, '0')}-phone-answer.png` });
         await p.click('[data-act="lock"]');
       }

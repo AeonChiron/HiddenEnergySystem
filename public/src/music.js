@@ -276,7 +276,8 @@ const DUCK = { badge: [0.5, 1.2], bonus: [0.45, 1.6], streak: [0.6, 1], allin: [
 export function duckMusic(name) {
   const d = DUCK[name];
   if (!d || !duck) return;
-  const [depth, release] = d, t = ctx.currentTime, g = duck.gain;
+  const [full, release] = d, t = ctx.currentTime, g = duck.gain;
+  const depth = 1 - (1 - full) * 0.5; // Seed (Nov 26): effects should sit under the music, so dip it half as much
   g.cancelScheduledValues(t);
   g.setValueAtTime(g.value, t);
   g.linearRampToValueAtTime(depth, t + 0.06);

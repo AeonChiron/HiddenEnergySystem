@@ -275,6 +275,11 @@
 .panel .pic[data-scene="fatReserves"] { --z: 1.3; --o: 50% 58%; }
 .panel .pic[data-scene="proteinFlood"] { --z: .98; --o: 50% 55%; }
 .panel .pic[data-scene="nutrientShortage"] { --z: .98; --o: 46% 50%; }
+.panel .pic[data-scene="timelinesEqual"] { --op: 0% 40%; --o: 0% 40%; } /* keep the left mouse's ear in frame */
+.panel .pic[data-scene="mouseMaze"] { --op: 50% 0%; --o: 60% 0%; } /* keep the top mouse's ear tip in frame */
+/* Zucchini photo was too bright on projectors: bring the exposure down a touch */
+img[src*="food/alfredo"] { filter: brightness(.9) contrast(.96) saturate(1.04); }
+img.food-photo[data-food="alfredo"] { filter: brightness(.9) contrast(.96) saturate(1.04) drop-shadow(0 26px 26px rgba(19, 40, 43, .2)); }
 .reveal-art .pic, .round-art .pic, .lobby-art .pic { aspect-ratio: 1; width: auto; height: 100%; max-width: 100%; margin: 0 auto; }
 .round-art .pic { height: auto; width: 100%; }
 .z-round1 .round-art .pic { aspect-ratio: 16 / 9; height: auto; width: 100%; position: relative; top: 50%; transform: translateY(-50%); }

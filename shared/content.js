@@ -105,7 +105,7 @@ export const QUESTIONS = [
     prompt: 'What does insulin do after you eat?',
     options: [
       { letter: 'A', text: 'Helps your body process sugar (glucose) and turn it into energy.', scene: 'sugarIntoCells' },
-      { letter: 'B', text: 'Prevents sugar from entering your blood.', scene: 'sugarBarrier' },
+      { letter: 'B', text: 'Blocks your body from getting energy.', scene: 'sugarBarrier' },
       { letter: 'C', text: "Tells your stomach you've eaten enough for the day.", scene: 'stomachFull' },
       { letter: 'D', text: 'All of the above.', all: true },
     ],
@@ -120,7 +120,7 @@ export const QUESTIONS = [
     n: 6, round: 2, kind: 'mc',
     prompt: 'What happens when your body becomes resistant to insulin?',
     options: [
-      { letter: 'A', text: 'Your pancreas immediately stops making insulin.', scene: 'pancreasStops' },
+      { letter: 'A', text: 'Your pancreas immediately stops making any insulin.', scene: 'pancreasStops' },
       { letter: 'B', text: 'Controlling blood sugar becomes harder, increasing your risk of type 2 diabetes.', scene: 'sugarPileUp' },
       { letter: 'C', text: 'You become immune to the consequences of eating too many donuts.', scene: 'donutShield' },
       { letter: 'D', text: 'All of the above.', all: true },
@@ -129,7 +129,7 @@ export const QUESTIONS = [
     hint: 'Resistant means insulin works less well, so keeping blood sugar steady gets harder.',
     reveal: {
       scene: 'revealResistance',
-      text: 'Your cells stop listening to insulin, so your body has to make more and more of it. If it can\'t keep up, blood sugar rises and type 2 diabetes can follow.',
+      text: 'Your cells stop listening to insulin, so your body has to make more of it. When it can\'t keep up, blood sugar rises.',
     },
   },
   {
@@ -145,7 +145,7 @@ export const QUESTIONS = [
     hint: 'Ketones are made from fat. Only one answer is true.',
     reveal: {
       scene: 'revealKetosis',
-      text: 'When carbs run low, your liver turns fat into ketones. Ketones are a backup fuel, and your brain can run on them.',
+      text: 'When you eat very few carbs, your body runs low on sugar. So your liver turns fat into ketones, a backup fuel your brain and body can use.',
     },
   },
   {
@@ -171,7 +171,7 @@ export const QUESTIONS = [
     prompt: 'What is autophagy?',
     options: [
       { letter: 'A', text: 'The creation of new cells.', scene: 'cellDivide' },
-      { letter: 'B', text: 'The breakdown and recycling of damaged cell components.', scene: 'autophagosome' },
+      { letter: 'B', text: 'The detoxifying and recycling of damaged cell components.', scene: 'autophagosome' },
       { letter: 'C', text: "Your body eating its own cells because it's hungry.", scene: 'hungryCell' },
       { letter: 'D', text: 'All of the above.', all: true },
     ],
@@ -251,27 +251,30 @@ export const QUESTIONS = [
 export const REGULAR_MAX_XP = ROUNDS.reduce((s, r) => s + r.points * 4, 0); // 2,400
 
 // ---------- betting ----------
-// Everyone starts with $100,000. Each question you may bet nothing or a fixed
-// stake: 0%, 10%, 15%, 25% or 50% of what you have. Right: win the stake. Wrong or no answer: lose it. Three right
-// answers in a row pay a $50,000 streak bonus (the count then starts again).
+// Everyone starts with $100,000. Each question you bet a chip: $10,000 to start,
+// and each tap of x2 doubles it, up to the round's cap ($40K, $80K, $160K) and
+// never more than you have. Fixed amounts add up instead of compounding, so an
+// early leader can still be caught (Seed, Nov 26). Right: win the chip. Wrong or
+// no answer: lose it. Three right answers in a row pay a $100,000 streak bonus.
 export const START_MONEY = 100_000;
-// Bets are a share of what you have now: 0%, 10%, 15%, 25% or 50% (max).
-export const BET_PCTS = [0, 10, 15, 25, 50];
+export const BET_BASE = 10_000;
+export const BET_CAPS = { 1: 40_000, 2: 80_000, 3: 160_000 };
 export const STREAK_LEN = 3;
-export const STREAK_BONUS = 50_000;
+export const STREAK_BONUS = 100_000;
 export const BONUS_PRIZE = 300_000; // closest guess on the bonus question; a perfect tie pays everyone tied
 // A player who is broke (or nearly) still gets one bet to play for: the
-// comeback bet. Right adds $10,000 and counts toward the $50,000 streak;
+// comeback bet. Right adds $10,000 and counts toward the $100,000 streak;
 // wrong costs only what they have left, so nobody goes below $0.
 export const COMEBACK_BET = 10000;
-export function betChoices(balance) {
-  const seen = new Set();
-  const list = BET_PCTS.map((pct) => ({ pct, amount: Math.floor((Math.max(0, balance) * pct) / 100 / 1000) * 1000 }))
-    .filter((c) => (seen.has(c.amount) ? false : seen.add(c.amount)));
-  if (list.length === 1) list.push({ pct: 0, amount: COMEBACK_BET, comeback: true });
+export const betCap = (round) => BET_CAPS[round] || BET_BASE;
+// The chip ladder for this round: 0 (no bet), then 10K, 20K, 40K... up to the cap and the balance.
+export function betChoices(balance, round) {
+  const list = [{ amount: 0 }];
+  for (let v = BET_BASE; v <= betCap(round) && v <= Math.max(0, balance); v *= 2) list.push({ amount: v });
+  if (list.length === 1) list.push({ amount: COMEBACK_BET, comeback: true });
   return list;
 }
-export function betOptions(balance) { return betChoices(balance).map((c) => c.amount); }
+export function betOptions(balance, round) { return betChoices(balance, round).map((c) => c.amount); }
 
 export function pointsFor(q) {
   if (q.round === 'bonus') return 0;
