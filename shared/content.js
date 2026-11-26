@@ -85,17 +85,17 @@ export const QUESTIONS = [
     },
   },
   {
-    n: 4, round: 1, kind: 'binary', food: 'alfredo',
-    title: 'Chicken Alfredo',
-    caption: 'Creamy sauce and zucchini noodles.',
+    n: 4, round: 1, kind: 'binary', food: 'chicken',
+    title: 'Garlic Herb Chicken with Lemon Cauliflower Rice',
+    caption: 'Garlic herb chicken, cauliflower rice and parsley.',
     prompt: FOOD_PROMPT,
     options: BINARY,
     answer: 'LOW',
-    hint: 'Those noodles are zucchini, not pasta.',
+    hint: 'That rice is cauliflower, not real rice.',
     reveal: {
       headline: 'Low carb',
-      text: 'Normal pasta is mostly starch. These noodles are zucchini, which is mostly water, so the same dish has far fewer carbs.',
-      callouts: ['Zucchini noodles', 'Creamy sauce and chicken'],
+      text: 'Normal rice is mostly starch. This rice is cauliflower, which has very few carbs, so the dish is low carb.',
+      callouts: ['Garlic herb chicken', 'Cauliflower rice', 'Parsley'],
     },
   },
 

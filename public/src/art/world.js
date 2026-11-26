@@ -67,7 +67,7 @@ export function bodyWorld() {
 }
 
 export function round1Art() {
-  const meals = [['acai', -230, -150, .9, -6], ['burger', 220, -170, .85, 5], ['quinoa', -220, 190, .9, 4], ['alfredo', 230, 200, .9, -4]];
+  const meals = [['acai', -230, -150, .9, -6], ['burger', 220, -170, .85, 5], ['quinoa', -220, 190, .9, 4], ['chicken', 230, 200, .9, -4]];
   return `<div class="meal-fan">${meals.map(([m, x, y, s, r]) => `<img src="${(globalThis.HE_IMG && globalThis.HE_IMG[m]) || `/img/food/${m}.webp`}" alt="" style="--x:${x}px;--y:${y}px;--s:${s};--r:${r}deg" class="fan-${m}">`).join('')}</div>`;
 }
 
