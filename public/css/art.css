@@ -265,7 +265,9 @@
 
 /* ---- Seed's pictures (Midjourney). Gentle motion only, so the pictures keep their quality. ---- */
 .pic { position: relative; width: 100%; height: 100%; overflow: hidden; border-radius: 28px; background: #e9e4da; box-shadow: 0 10px 30px rgb(20 40 40 / .12); }
-.pic img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: var(--op, 50% 50%); transform-origin: var(--o, 50% 50%); transform: scale(var(--z, 1)); will-change: transform; }
+.pic img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: var(--op, 50% 50%); transform-origin: var(--o, 50% 50%); transform: scale(var(--z, 1)); }
+/* Only pictures in the scene on screen get their own layer (70 layers at once crash phones). */
+.zone.live .pic img { will-change: transform; }
 /* Framing per picture in the answer panels (Seed's notes, Nov 23). --z zooms, --o is where it zooms toward. */
 .panel .pic[data-scene="donutShield"] { --z: 1.75; --o: 82% 22%; }
 .panel .pic[data-scene="fatToKetones"] { --z: .98; --op: 50% 0%; --o: 50% 30%; }

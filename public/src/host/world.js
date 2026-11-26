@@ -24,7 +24,8 @@ const PANELS_X = (Q_W - (3 * PANEL_W + 2 * PANEL_GAP)) / 2; // three answers, ce
 const ROW_GAP = 900;
 const ZONE_GAP = 700;
 
-export function buildWorld(worldEl, content) {
+export function buildWorld(worldEl, content, opts = {}) {
+  TALL = !!opts.tall;
   const { rounds, questions } = content;
   const zones = {};
   let html = '';
@@ -34,6 +35,8 @@ export function buildWorld(worldEl, content) {
     html += `<section class="zone ${cls}" id="z-${id}" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px">${inner}</section>`;
   };
 
+  if (TALL) buildTall(place, zones, rounds, questions);
+  else {
   // Row 0: lobby
   place('lobby', 0, 0, 1920, 1080, lobbyHTML(), 'z-lobby');
   const HX = 1920 + ZONE_GAP;
@@ -60,6 +63,7 @@ export function buildWorld(worldEl, content) {
   place('bonusIntro', 0, y, 1920, 1080, bonusIntroHTML(bonus), 'z-bonusintro');
   place('q13', 1920 + ZONE_GAP, y, 1920, 1080, bonusHTML(bonus), 'z-bonus');
   place('podium', (1920 + ZONE_GAP) * 2, y, 1920, 1080, podiumHTML(), 'z-podium');
+  }
 
   worldEl.innerHTML = artDefs() + html;
 
@@ -73,15 +77,58 @@ export function buildWorld(worldEl, content) {
   for (const q of questions) {
     const z = zones[`q${q.n}`];
     if (q.kind === 'mc') {
-      zones[`q${q.n}title`] = { x: z.x + 150, y: z.y, w: Q_W - 300, h: 260 };
+      if (TALL) zones[`q${q.n}title`] = { x: z.x + 40, y: z.y + T_MC.top, w: TW - 80, h: T_MC.title };
+      else zones[`q${q.n}title`] = { x: z.x + 150, y: z.y, w: Q_W - 300, h: 260 };
       q.options.filter((o) => !o.all).forEach(({ letter: L }, i) => {
-        zones[`q${q.n}${L}`] = { x: z.x + PANELS_X + i * (PANEL_W + PANEL_GAP), y: z.y + 200, w: PANEL_W, h: PANEL_H };
+        zones[`q${q.n}${L}`] = TALL
+          ? { x: z.x + (TW - T_MC.pw) / 2, y: z.y + T_MC.top + T_MC.title + i * (T_MC.ph + T_MC.gap), w: T_MC.pw, h: T_MC.ph }
+          : { x: z.x + PANELS_X + i * (PANEL_W + PANEL_GAP), y: z.y + 200, w: PANEL_W, h: PANEL_H };
       });
     }
-    if (q.kind === 'binary') zones[`q${q.n}plate`] = { x: z.x, y: z.y, w: Q_W, h: Q_H };
+    if (q.kind === 'binary') zones[`q${q.n}plate`] = TALL ? { x: z.x, y: z.y + 120, w: TW, h: 860 } : { x: z.x, y: z.y, w: Q_W, h: Q_H };
   }
 
   return zones;
+}
+
+// ---------- tall screens (a phone held upright) ----------
+// The same journey with every scene stacked for a 1080x1920 stage. The
+// answers sit one above the other, so the camera travels down between them.
+let TALL = false;
+const TW = 1080, TH = 1920;
+// top: room above the title for the timer and labels; the zone ends with room for the buttons.
+const T_MC = { top: 160, title: 400, pw: 960, ph: 660, gap: 40, all: 140 };
+T_MC.h = T_MC.top + T_MC.title + 3 * T_MC.ph + 2 * T_MC.gap + 40 + T_MC.all + 260;
+function buildTall(place, zones, rounds, questions) {
+  const G = 500; // gap between scenes
+  place('lobby', 0, 0, TW, TH, lobbyHTML(), 'z-lobby');
+  const HX = TW + G;
+  place('howto', HX, 0, HOWTO_BEATS.length * (TW + BEAT_GAP) - BEAT_GAP, TH, howtoHTML(), 'z-howto');
+  HOWTO_BEATS.forEach((_, i) => { zones[`howto${i}`] = { id: `howto${i}`, x: HX + i * (TW + BEAT_GAP), y: 0, w: TW, h: TH }; });
+  let y = TH + 700;
+  for (const r of rounds) {
+    let x = 0, bottom = y + TH;
+    const qs = questions.filter((q) => q.round === r.id);
+    place(`round${r.id}`, x, y, TW, TH, roundIntroHTML(r), `z-round z-round${r.id}`);
+    x += TW + G;
+    for (const q of qs) {
+      if (q.kind === 'binary') place(`q${q.n}`, x, y, TW, TH, foodHTML(q), 'z-food');
+      else {
+        place(`q${q.n}`, x, y, TW, T_MC.h, mcHTML(q), 'z-mc');
+        place(`r${q.n}`, x, y + T_MC.h + 200, TW, TH, revealHTML(q), 'z-reveal');
+        bottom = Math.max(bottom, y + T_MC.h + 200 + TH);
+      }
+      x += TW + G;
+    }
+    place(`disc${r.id}`, x, y, TW, TH, discoveryHTML(r), 'z-disc');
+    place(`lb${r.id}`, x, y + TH + 200, TW, TH, leaderboardHTML(r), 'z-lb');
+    bottom = Math.max(bottom, y + TH + 200 + TH);
+    y = bottom + 700;
+  }
+  const bonus = questions.find((q) => q.kind === 'number');
+  place('bonusIntro', 0, y, TW, TH, bonusIntroHTML(bonus), 'z-bonusintro');
+  place('q13', TW + G, y, TW, TH, bonusHTML(bonus), 'z-bonus');
+  place('podium', (TW + G) * 2, y, TW, TH, podiumHTML(), 'z-podium');
 }
 
 export const zoneEl = (id, scope = document) => scope.querySelector(`#z-${id}`);
@@ -118,7 +165,7 @@ function beatVisual(v) {
 
 function howtoHTML() {
   return `<div class="howto">${HOWTO_BEATS.map((b, i) => `
-    <div class="beat" data-beat="${i}" style="left:${i * (BEAT_W + BEAT_GAP)}px">
+    <div class="beat" data-beat="${i}" style="left:${i * ((TALL ? TW : BEAT_W) + BEAT_GAP)}px">
       <div class="beat-vis">${beatVisual(b.vis)}</div>
       <div class="caption">${b.lines.map((l, j) => `<span class="cl" style="--j:${j}"><span>${esc(l)}</span></span>`).join('')}</div>
     </div>`).join('')}</div>`;

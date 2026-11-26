@@ -4,11 +4,10 @@
 .host-page { overflow: hidden; background: #fff; }
 .host-page #app { position: fixed; inset: 0; }
 .he-host { position: absolute; inset: 0; overflow: hidden; background: #fff; color: var(--ink); }
-.viewport { position: absolute; inset: 0; overflow: hidden; background: #fff; }
+.viewport { position: absolute; inset: 0; overflow: hidden; background: #fff;
+  /* barely-there dots so camera travel reads on a white canvas; the camera sets size and position */
+  background-image: radial-gradient(circle at 50% 50%, #e9ecea 4.9%, transparent 5.3%); }
 .world { position: absolute; left: 0; top: 0; width: 1px; height: 1px; transform-origin: 0 0; }
-.world::before { /* barely-there dots so camera travel reads on a white canvas */
-  content: ''; position: absolute; left: -6000px; top: -6000px; width: 44000px; height: 24000px;
-  background-image: radial-gradient(#e9ecea 2.2px, transparent 2.4px); background-size: 64px 64px; pointer-events: none; }
 .zone { position: absolute; }
 .zone * { animation-play-state: paused; }
 .zone.live * { animation-play-state: running; }
@@ -437,3 +436,119 @@
 /* Fast camera moves smear a little, like a real lens; set by the camera only mid-whoosh. */
 .world.smear { will-change: transform, filter; }
 @media (prefers-reduced-motion: reduce) { .mc .q-title { filter: none; } .live .round-intro .round-name, .live .discovery .disc-text { animation: none; } }
+
+/* ---------- Tall screens: a phone (or tablet) held upright ----------
+   The stage is 1080x1920 and every scene stacks top to bottom. Sizes are
+   design px; on an iPhone they show at about a third. */
+.tall .hud { width: 1080px; height: 1920px; }
+.tall kbd { display: none; }
+.tall .hud-tl { left: 48px; top: 52px; }
+.tall .hud-round { font-size: 30px; }
+.tall .hud-q { font-size: 44px; }
+.tall .hud-timer { right: 48px; top: 44px; width: 160px; height: 160px; }
+.tall .hud-timer b { font-size: 64px; }
+.tall .hud-timer small { font-size: 20px; bottom: 30px; }
+.tall .hud-answers { top: 64px; bottom: auto; padding: 14px 32px; font-size: 30px; }
+.tall .hud-answers b { font-size: 38px; }
+.tall .hud-join { left: 50%; translate: -50% 0; bottom: 170px; font-size: 28px; padding: 14px 28px; white-space: nowrap; }
+.tall .hud-dock { left: 48px; right: 48px; bottom: 52px; justify-content: center; gap: 16px; }
+.tall .dock-btn, .tall .hud-next { font-size: 34px; padding: 22px 36px; flex: 1; justify-content: center; }
+.tall .hud-tools { display: none; }
+.tall .hud-status { font-size: 28px; top: 48px; }
+
+.tall .lobby { grid-template-columns: 1fr; padding: 100px 60px 280px; gap: 0; align-content: center; justify-items: center; }
+.tall .lobby .about, .tall .lobby-art { display: none; }
+.tall .lobby-center { gap: 32px; }
+.tall .lobby-title { flex-direction: column; text-align: center; gap: 26px; }
+.tall .lobby-title .mark { width: 190px; height: 190px; }
+.tall .logo { font-size: 116px; }
+.tall .logo span { font-size: 54px; }
+.tall .live-pill { font-size: 32px; padding: 14px 32px; }
+.tall .lobby-join { flex-direction: column; text-align: center; gap: 26px; padding: 44px 50px; }
+.tall .qr { width: 350px; height: 350px; }
+.tall .join-head { font-size: 46px; }
+.tall .join-url, .tall .join-code { font-size: 32px; }
+.tall .join-code b { font-size: 110px; }
+.tall .join-steps { font-size: 30px; }
+.tall .waiting { font-size: 36px; }
+.tall .names { max-height: 300px; }
+.tall .names li { font-size: 34px; }
+.tall .start-btn { font-size: 46px; padding: 30px 70px; }
+
+.tall .beat { width: 1080px; height: 1920px; gap: 90px; padding: 0 60px; }
+.tall .cl > span { font-size: 86px; }
+.tall .cl:nth-child(2) > span { font-size: 60px; }
+.tall .hv-big { font-size: 180px; }
+.tall .hv-row { gap: 18px; flex-wrap: wrap; max-width: 960px; }
+.tall .hv-chip { font-size: 60px; padding: 16px 28px; }
+.tall .hv-streak { zoom: 1; }
+.tall .hv-streak .hv-row { gap: 16px 14px; }
+.tall .hv-step .hv-check { width: 130px; height: 130px; font-size: 76px; }
+.tall .hv-plus-sign, .tall .hv-eq { font-size: 70px; }
+.tall .hv-streak .hv-plus { font-size: 110px; margin-bottom: 0; flex-basis: 100%; text-align: center; }
+.tall .hv-bulb { width: 230px; height: 230px; }
+
+.tall .round-intro { justify-content: flex-end; padding: 0 70px 260px; }
+.tall .round-art, .tall .z-round1 .round-art { left: 70px; right: 70px; top: 170px; width: auto; height: 900px; transform: none; }
+.tall .round-intro > *:not(.round-art) { max-width: none; }
+.tall .round-name { font-size: 116px; }
+.tall .round-tag { font-size: 46px; }
+.tall .round-pts { font-size: 32px; padding: 14px 28px; }
+.tall .discovery, .tall .bonus-intro { padding: 160px 70px; }
+.tall .bonus-intro .round-tag { font-size: 48px; }
+.tall .disc-text { font-size: 108px; }
+
+.tall .food { grid-template-columns: 1fr; grid-template-rows: 800px auto; gap: 30px; align-content: start; padding-top: 150px; }
+.tall .plate { width: 800px; height: 800px; margin: 0 auto; }
+.tall .food-side { padding: 0 70px; transform: translateY(40px); }
+.tall .food-title { font-size: 100px; }
+.tall .food-cap { font-size: 42px; margin-bottom: 22px; }
+.tall .food-num { margin: 0; }
+.tall .food-prompt { font-size: 40px; }
+.tall .chips { flex-direction: row; gap: 22px; }
+.tall .chip { flex: 1; font-size: 50px; padding: 26px 24px; }
+.tall .food-reveal { font-size: 38px; }
+.tall .callout span { white-space: normal; width: max-content; max-width: 360px; font-size: 32px; }
+
+.tall .mc { padding-top: 160px; }
+.tall .mc .q-title { font-size: 84px; max-width: 980px; height: 400px; padding: 0 10px; text-wrap: balance; }
+.tall .panels { left: 60px; top: 560px; flex-direction: column; gap: 40px; }
+.tall .panel { width: 960px; height: 660px; }
+.tall .panel-ground { width: 960px; height: 470px; }
+.tall .panel-art { height: 470px; }
+.tall .panel-text p { font-size: 46px; }
+.tall .ltr { width: 66px; height: 66px; font-size: 38px; }
+.tall .panel-all { left: 60px; right: 60px; top: 2660px; height: 140px; }
+.tall .panel-all p { font-size: 42px; }
+.tall .count { min-width: 76px; height: 76px; font-size: 38px; }
+
+.tall .reveal-card { grid-template-columns: 1fr; grid-template-rows: 960px auto; gap: 50px; align-content: start; padding: 160px 60px 80px; }
+.tall .reveal-art { height: 960px; }
+.tall .reveal-body { font-size: 52px; }
+.tall .reveal-note { font-size: 38px; }
+.tall .reveal-stats { font-size: 42px; }
+
+.tall .leaderboard { padding: 200px 60px; }
+.tall .lb-title { font-size: 92px; }
+.tall .lb-rows li { grid-template-columns: 54px 44px 1fr auto auto; gap: 16px; padding: 18px 24px; font-size: 44px; }
+.tall .lb-rows li i { width: 44px; height: 44px; }
+
+.tall .bonus { padding: 220px 60px 200px; }
+.tall .bonus .q-title { font-size: 58px; margin: 0 0 40px; height: auto; }
+.tall .bonus-main { grid-template-columns: 1fr; gap: 50px; flex: none; justify-items: center; }
+.tall .pct { font-size: 280px; }
+.tall .people { width: 940px; }
+.tall .bonus-foot { grid-template-columns: 1fr; gap: 30px; margin-top: 50px; }
+.tall .bonus-foot .reveal-body { font-size: 40px; }
+.tall .guesses li { font-size: 36px; }
+
+.tall .podium { padding-top: 220px; padding-bottom: 260px; }
+.tall .podium-title { font-size: 104px; }
+.tall .steps { gap: 18px; }
+.tall .step { width: 320px; }
+.tall .s1 .block { height: 560px; } .tall .s2 .block { height: 410px; } .tall .s3 .block { height: 300px; }
+.tall .who span { font-size: 46px; }
+.tall .spot { width: 980px; top: 380px; padding: 34px 40px; }
+.tall .spot-name { font-size: 66px; }
+.tall .spot-lines li { font-size: 36px; }
+.tall .play-gate { font-size: 46px; }

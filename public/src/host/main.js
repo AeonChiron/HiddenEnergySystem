@@ -37,7 +37,21 @@ export function mountHost(root, opts = {}) {
   // classroom: this screen is the projector. online: it runs unseen inside the creator's phone.
   const MODE = opts.mode || (params.get('mode') === 'online' ? 'online' : 'classroom');
 
+  // A tall screen (a phone or tablet held upright) gets the whole show laid
+  // out vertically. Turning the screen reloads into the other layout.
+  const tallNow = () => MODE === 'classroom' && !opts.connect && innerHeight > innerWidth * 1.05;
+  const TALL = tallNow();
+  const LITE = matchMedia('(pointer: coarse)').matches; // phones and tablets: lighter pictures
+  if (LITE) globalThis.HE_LITE = true;
+  const reloadSame = () => { // into the same game: drop ?new, which would start a fresh one
+    try { if (S.started) sessionStorage.setItem('he:auto', '1'); } catch {}
+    const q = new URLSearchParams(location.search); ['new', 'from', 'bots'].forEach((k) => q.delete(k));
+    location.replace(location.pathname + (q.toString() ? `?${q}` : ''));
+  };
+  if (!opts.connect) addEventListener('resize', () => { if (tallNow() !== TALL) setTimeout(() => { if (tallNow() !== TALL) reloadSame(); }, 400); });
   root.classList.add('he-host');
+  root.classList.toggle('tall', TALL);
+  root.classList.toggle('lite', LITE);
   root.innerHTML = `
     <div class="viewport" id="viewport"><div class="world" id="world"></div></div>
     <div class="hud" id="hud">
@@ -109,7 +123,8 @@ export function mountHost(root, opts = {}) {
         if (m.open) { S.open = { n: m.open.n, total: m.open.total }; S.deadline = clock.now() + m.open.remaining; }
         if (!S.content) {
           S.content = m.content;
-          S.zones = buildWorld($('#world', root), m.content);
+          S.zones = buildWorld($('#world', root), m.content, { tall: TALL });
+          cam.setParts([...root.querySelectorAll('#world > .zone')].map((el) => ({ el, ...S.zones[el.id.slice(2)] })));
           cam.set(cam.frame(S.zones.lobby, 0));
           setupJoin();
           if (params.has('bots') || opts.previewBots) net.send({ t: 'host:bots', n: Number(params.get('bots')) || opts.previewBots || 8 });
@@ -168,6 +183,7 @@ export function mountHost(root, opts = {}) {
   // The HUD is laid out at 1920x1080 and scaled onto the stage with the camera.
   const cam = new Camera($('#viewport', root), $('#world', root), {
     speed: SPEED,
+    design: TALL ? { w: 1080, h: 1920 } : null,
     onFit: (fit, box) => {
       const h = $('#hud', root);
       root.style.setProperty('--fit', fit);

@@ -25,7 +25,7 @@ const DEPTH = new Set(["abnormalCells", "autophagosome", "brainPlaques", "butter
 function pic(id, i) {
   const big = id.startsWith('reveal') || id.startsWith('round') || id === 'lobby';
   const move = MOVES[i % MOVES.length];
-  if (DEPTH.has(id) && !globalThis.HE_IMG) {
+  if (DEPTH.has(id) && !globalThis.HE_IMG && !globalThis.HE_LITE) { // phones: one flat picture, half the memory
     // If a layer fails to load, fall back to the flat picture.
     const flat = `this.closest('.pic').classList.remove('depth');this.closest('.pic').querySelector('.fg')?.remove();this.onerror=null;this.src='${imgSrc(id)}'`;
     return `<div class="pic depth pic-${move}${big ? ' pic-big' : ''}" data-scene="${id}"><img class="bg" src="/img/art/depth/${id}-bg.webp" alt="" draggable="false" decoding="async" onerror="${flat}"><img class="fg" src="/img/art/depth/${id}-fg.webp" alt="" draggable="false" decoding="async" onerror="this.previousElementSibling.onerror()"></div>`;

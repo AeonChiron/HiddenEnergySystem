@@ -7,8 +7,13 @@ export const PACE = 1 / 1.75;
 //   await cam.whoosh({x, y, z}, ms)  fast horizontal move with a small zoom dip
 //   await cam.fly({x, y, z}, ms)     smooth zoom-out / travel / zoom-in arc
 
-const DESIGN_W = 1920;
-const DESIGN_H = 1080;
+// The stage is 1920x1080 (a projector), or 1080x1920 on a tall screen such as
+// a phone held upright (opts.design).
+let DESIGN_W = 1920;
+let DESIGN_H = 1080;
+// Phones: no blur smear on fast moves (a blur over the whole board is heavy).
+const LITE = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
+const DOT = 64; // the faint dot grid on the canvas, in world px
 
 export const ease = {
   inOutCubic: (t) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2),
@@ -31,6 +36,8 @@ export class Camera {
     this.onFit = opts.onFit || null;
     this.anim = null;
     this.fit = 1;
+    this.parts = []; // zones to cull: { el, x, y, w, h }
+    if (opts.design) { DESIGN_W = opts.design.w; DESIGN_H = opts.design.h; }
     this.ro = new ResizeObserver(() => this.resize());
     this.ro.observe(viewport);
     this.resize();
@@ -53,8 +60,28 @@ export class Camera {
   apply() {
     const { x, y, z } = this.pos;
     const s = z * this.fit;
-    this.world.style.transform = `translate3d(${(this.vw / 2 - x * s).toFixed(2)}px, ${(this.vh / 2 - y * s).toFixed(2)}px, 0) scale(${s.toFixed(5)})`;
+    const tx = this.vw / 2 - x * s, ty = this.vh / 2 - y * s;
+    this.world.style.transform = `translate3d(${tx.toFixed(2)}px, ${ty.toFixed(2)}px, 0) scale(${s.toFixed(5)})`;
+    // The dot grid is the viewport's own background, moved with the camera,
+    // instead of a giant layer inside the world (phones crash drawing that).
+    const d = DOT * s, vs = this.viewport.style;
+    vs.backgroundSize = `${d.toFixed(2)}px ${d.toFixed(2)}px`;
+    vs.backgroundPosition = `${(tx % d).toFixed(2)}px ${(ty % d).toFixed(2)}px`;
+    this.cull(tx, ty, s);
     this.onMove && this.onMove(this.pos);
+  }
+
+  // Scenes far off screen are not drawn at all (visibility hidden): a phone
+  // then only paints the one or two scenes the camera can see.
+  setParts(parts) { this.parts = parts; this.apply(); }
+  cull(tx, ty, s) {
+    if (!this.parts.length) return;
+    const pad = 400;
+    const L = (-tx) / s - pad, T = (-ty) / s - pad, R = (this.vw - tx) / s + pad, B = (this.vh - ty) / s + pad;
+    for (const p of this.parts) {
+      const show = p.x < R && p.x + p.w > L && p.y < B && p.y + p.h > T;
+      if (show !== p.shown) { p.shown = show; p.el.style.visibility = show ? '' : 'hidden'; }
+    }
   }
 
   set(p) {
@@ -98,7 +125,7 @@ export class Camera {
     // Smear only on a fast move: a light blur that peaks while the camera is
     // fastest and is gone before it lands (never on reduced motion).
     const travel = Math.hypot(b.x - a.x, b.y - a.y) * a.z * this.fit;
-    const smear = travel > 500 && !matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const smear = travel > 500 && !LITE && !matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (smear) this.world.classList.add('smear');
     const done = this.tween((t) => {
       const e = ease.launch(t);
