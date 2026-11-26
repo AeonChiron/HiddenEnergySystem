@@ -138,7 +138,7 @@ export const QUESTIONS = [
     options: [
       { letter: 'A', text: 'When your body turns fat into an alternative fuel called ketones.', scene: 'fatToKetones' },
       { letter: 'B', text: 'When your body runs out of energy.', scene: 'emptyBattery' },
-      { letter: 'C', text: 'When eating more fat automatically makes you lose more weight.', scene: 'butterScale' },
+      { letter: 'C', text: 'A very bad flu.', scene: 'butterScale' },
       { letter: 'D', text: 'All of the above.', all: true },
     ],
     answer: 'A',
