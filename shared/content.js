@@ -95,7 +95,7 @@ export const QUESTIONS = [
     reveal: {
       headline: 'Low carb',
       text: 'The rice is cauliflower, so it has very few carbs.',
-      callouts: ['Garlic herb chicken', 'Cauliflower rice', 'Parsley'],
+      callouts: ['Garlic herb chicken', 'Cauliflower rice'],
     },
   },
 
